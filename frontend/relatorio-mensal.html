@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Relatório Mensal — Fazenda</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>Controle Financeiro da Fazenda</h1>
+</header>
+
+<nav class="navbar">
+  <a href="index.html" class="nav-link">Lançamentos</a>
+  <a href="dashboard.html" class="nav-link">Dashboard Anual</a>
+  <a href="relatorio-mensal.html" class="nav-link active">Relatório Mensal</a>
+</nav>
+
+<main class="container">
+  <section class="periodo-seletor">
+    <label>
+      Ano
+      <select id="seletor-ano"></select>
+    </label>
+    <label>
+      Mês
+      <select id="seletor-mes">
+        <option value="01">Janeiro</option>
+        <option value="02">Fevereiro</option>
+        <option value="03">Março</option>
+        <option value="04">Abril</option>
+        <option value="05">Maio</option>
+        <option value="06">Junho</option>
+        <option value="07">Julho</option>
+        <option value="08">Agosto</option>
+        <option value="09">Setembro</option>
+        <option value="10">Outubro</option>
+        <option value="11">Novembro</option>
+        <option value="12">Dezembro</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="cards" id="cards-resumo">
+    <div class="card card-receita">
+      <span class="card-label">Receita do mês</span>
+      <span class="card-valor" id="card-receita">R$ 0,00</span>
+    </div>
+    <div class="card card-despesa">
+      <span class="card-label">Despesa do mês</span>
+      <span class="card-valor" id="card-despesa">R$ 0,00</span>
+    </div>
+    <div class="card card-saldo">
+      <span class="card-label">Saldo do mês</span>
+      <span class="card-valor" id="card-saldo">R$ 0,00</span>
+    </div>
+    <div class="card card-capex">
+      <span class="card-label">CAPEX</span>
+      <span class="card-valor" id="card-capex">R$ 0,00</span>
+    </div>
+    <div class="card card-opex">
+      <span class="card-label">OPEX</span>
+      <span class="card-valor" id="card-opex">R$ 0,00</span>
+    </div>
+  </section>
+
+  <section class="tabelas-categoria-grid">
+    <div class="grafico-card">
+      <h3>Despesas por categoria</h3>
+      <table class="tabela-categoria">
+        <thead><tr><th>Categoria</th><th>Valor</th></tr></thead>
+        <tbody id="tabela-despesas-categoria"></tbody>
+      </table>
+    </div>
+    <div class="grafico-card">
+      <h3>Receitas por categoria</h3>
+      <table class="tabela-categoria">
+        <thead><tr><th>Categoria</th><th>Valor</th></tr></thead>
+        <tbody id="tabela-receitas-categoria"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="tabela-wrapper">
+    <table class="tabela-lancamentos">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Tipo</th>
+          <th>Classificação</th>
+          <th>Categoria</th>
+          <th>Subcategoria</th>
+          <th class="col-valor">Qtde</th>
+          <th>Descrição</th>
+          <th class="col-valor">Valor</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-corpo">
+        <tr><td colspan="8" class="vazio">Nenhum lançamento neste período.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/relatorio-mensal.js"></script>
+</body>
+</html>

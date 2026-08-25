@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard Anual — Fazenda</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>Controle Financeiro da Fazenda</h1>
+</header>
+
+<nav class="navbar">
+  <a href="index.html" class="nav-link">Lançamentos</a>
+  <a href="dashboard.html" class="nav-link active">Dashboard Anual</a>
+  <a href="relatorio-mensal.html" class="nav-link">Relatório Mensal</a>
+</nav>
+
+<main class="container">
+  <section class="periodo-seletor">
+    <label>
+      Ano
+      <select id="seletor-ano"></select>
+    </label>
+  </section>
+
+  <section class="cards" id="cards-resumo">
+    <div class="card card-receita">
+      <span class="card-label">Receita total</span>
+      <span class="card-valor" id="card-receita">R$ 0,00</span>
+    </div>
+    <div class="card card-despesa">
+      <span class="card-label">Despesa total</span>
+      <span class="card-valor" id="card-despesa">R$ 0,00</span>
+    </div>
+    <div class="card card-saldo">
+      <span class="card-label">Saldo</span>
+      <span class="card-valor" id="card-saldo">R$ 0,00</span>
+    </div>
+    <div class="card card-capex">
+      <span class="card-label">CAPEX</span>
+      <span class="card-valor" id="card-capex">R$ 0,00</span>
+    </div>
+    <div class="card card-opex">
+      <span class="card-label">OPEX</span>
+      <span class="card-valor" id="card-opex">R$ 0,00</span>
+    </div>
+  </section>
+
+  <section class="graficos-grid">
+    <div class="grafico-card">
+      <h3>Receitas x Despesas por mês</h3>
+      <canvas id="grafico-mensal"></canvas>
+    </div>
+    <div class="grafico-card">
+      <h3>CAPEX x OPEX por mês</h3>
+      <canvas id="grafico-capex-opex"></canvas>
+    </div>
+    <div class="grafico-card">
+      <h3>Despesas por categoria</h3>
+      <canvas id="grafico-despesas-categoria"></canvas>
+    </div>
+    <div class="grafico-card">
+      <h3>Receitas por categoria</h3>
+      <canvas id="grafico-receitas-categoria"></canvas>
+    </div>
+  </section>
+
+  <section class="grafico-card">
+    <h3>Vendas por tipo de animal</h3>
+    <div class="tabelas-categoria-grid">
+      <table class="tabela-categoria">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Qtde vendida</th>
+            <th>Nº de vendas</th>
+            <th>Preço médio</th>
+            <th>Valor total</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-animais"></tbody>
+      </table>
+      <div>
+        <canvas id="grafico-animais"></canvas>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="js/vendor/chart.umd.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
