@@ -1,5 +1,6 @@
 // Importação única dos históricos de despesa/receita 2026 fornecidos em CSV.
-const API = 'http://localhost:3000/api';
+// Uso: node import-2026.js  (local)  |  API_BASE=https://seu-app.fly.dev/api node import-2026.js (produção)
+const API = process.env.API_BASE || 'http://localhost:3000/api';
 
 const despesasPorMes = {
   '01': [

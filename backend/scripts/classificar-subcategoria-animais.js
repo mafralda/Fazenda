@@ -1,6 +1,6 @@
 // Preenche a subcategoria (tipo de animal) dos lançamentos de "Venda de animais"
 // já importados, lendo palavras-chave da descrição.
-const API = 'http://localhost:3000/api';
+const API = process.env.API_BASE || 'http://localhost:3000/api';
 
 const REGRAS = [
   [/marr[aã]/i, 'Marrã'],

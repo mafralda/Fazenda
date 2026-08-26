@@ -23,8 +23,10 @@ body {
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   padding: 1rem 1.5rem;
   background: var(--verde-escuro);
   color: white;
@@ -41,10 +43,13 @@ body {
   background: white;
   border-bottom: 1px solid var(--cinza-borda);
   padding: 0 1.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .nav-link {
   display: inline-block;
+  flex-shrink: 0;
   padding: 0.75rem 1rem;
   color: var(--texto-suave);
   text-decoration: none;
@@ -107,6 +112,8 @@ body {
   border: 1px solid var(--cinza-borda);
   border-radius: 10px;
   padding: 1.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .grafico-card h3 {
@@ -244,6 +251,7 @@ body {
   border: 1px solid var(--cinza-borda);
   border-radius: 8px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tabela-lancamentos {
@@ -360,4 +368,105 @@ dialog::backdrop {
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+/* ===== Responsivo ===== */
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .graficos-grid,
+  .tabelas-categoria-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    padding: 0.85rem 1rem;
+  }
+
+  .topbar h1 {
+    font-size: 1.05rem;
+  }
+
+  .navbar {
+    padding: 0 1rem;
+  }
+
+  .nav-link {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .card {
+    padding: 0.85rem 1rem;
+  }
+
+  .card-valor {
+    font-size: 1.15rem;
+  }
+
+  .filtros,
+  .periodo-seletor {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros label,
+  .periodo-seletor label {
+    width: 100%;
+  }
+
+  .filtros select,
+  .periodo-seletor select,
+  .filtros input {
+    width: 100%;
+  }
+
+  .campo-linha {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  dialog {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  #form-lancamento {
+    height: 100%;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Evita zoom automático em inputs no iOS Safari (exige font-size >= 16px) */
+@media (max-width: 640px) {
+  .filtros input,
+  .filtros select,
+  .periodo-seletor select,
+  #form-lancamento input,
+  #form-lancamento select,
+  #form-lancamento textarea {
+    font-size: 16px;
+  }
 }

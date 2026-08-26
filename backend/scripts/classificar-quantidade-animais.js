@@ -1,6 +1,6 @@
 // Preenche a quantidade dos lançamentos de "Venda de animais" já importados,
 // lendo o número que abre a descrição (ex: "9 ovelhas" -> 9).
-const API = 'http://localhost:3000/api';
+const API = process.env.API_BASE || 'http://localhost:3000/api';
 
 function extrairQuantidade(descricao) {
   const match = (descricao || '').trim().match(/^(\d+)\s*(kg)?/i);
