@@ -167,7 +167,6 @@ async function importar() {
 
         const corpo = {
           tipo,
-          classificacao: tipo === 'despesa' ? categoria.classificacao_padrao : null,
           categoria_id: categoria.id,
           descricao,
           valor,

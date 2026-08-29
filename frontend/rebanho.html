@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rebanho — Controle da Fazenda Humaytá</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>Controle da Fazenda Humaytá</h1>
+  <button id="btn-novo-nascimento" class="btn btn-primary">+ Registrar nascimento</button>
+</header>
+
+<nav class="navbar">
+  <a href="index.html" class="nav-link">Dashboard Anual</a>
+  <a href="lancamentos.html" class="nav-link">Lançamentos</a>
+  <a href="relatorio-mensal.html" class="nav-link">Relatório Mensal</a>
+  <a href="rebanho.html" class="nav-link active">Rebanho</a>
+</nav>
+
+<main class="container">
+  <section class="periodo-seletor">
+    <div class="especie-toggle">
+      <button id="btn-especie-bovino" class="btn btn-secundario ativo">Bovino</button>
+      <button id="btn-especie-ovino" class="btn btn-secundario">Ovino</button>
+    </div>
+    <label>
+      Ano
+      <select id="seletor-ano"></select>
+    </label>
+  </section>
+
+  <div class="sub-tabs">
+    <button id="tab-visao-geral" class="sub-tab ativo">Visão Geral</button>
+    <button id="tab-historico" class="sub-tab">Histórico</button>
+  </div>
+
+  <div id="aba-visao-geral">
+    <section class="cards" id="cards-categorias"></section>
+
+    <section class="grafico-card">
+      <h3>Evolução do rebanho no ano</h3>
+      <canvas id="grafico-rebanho"></canvas>
+    </section>
+
+    <section class="grafico-card">
+      <div class="rebanho-mes-cabecalho">
+        <h3>Detalhe do mês</h3>
+        <label>
+          Mês
+          <select id="seletor-mes"></select>
+        </label>
+      </div>
+
+      <div class="tabela-wrapper">
+        <table class="tabela-categoria">
+          <thead>
+            <tr>
+              <th>Categoria</th>
+              <th class="col-valor">Saldo anterior</th>
+              <th class="col-valor">Óbitos</th>
+              <th class="col-valor">Vendas</th>
+              <th class="col-valor">Nascimentos</th>
+              <th class="col-valor">Total</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-mes"></tbody>
+        </table>
+      </div>
+
+      <p id="nota-mes" class="nota-rebanho"></p>
+    </section>
+  </div>
+
+  <div id="aba-historico" style="display:none">
+    <section class="grafico-card">
+      <h3>Histórico de nascimentos e transições</h3>
+      <div class="tabela-wrapper">
+        <table class="tabela-categoria">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Evento</th>
+              <th>Categoria</th>
+              <th class="col-valor">Quantidade</th>
+              <th>Observações</th>
+              <th class="col-acoes">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-historico"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<dialog id="modal-nascimento">
+  <form id="form-nascimento" method="dialog">
+    <h2>Registrar nascimento</h2>
+
+    <label>
+      Espécie
+      <select id="nasc-especie" required>
+        <option value="bovino">Bovino</option>
+        <option value="ovino">Ovino</option>
+      </select>
+    </label>
+
+    <label>
+      Categoria (sexo da cria)
+      <select id="nasc-categoria" required></select>
+    </label>
+
+    <label>
+      Quantidade
+      <input type="number" id="nasc-quantidade" min="1" step="1" value="1" required />
+    </label>
+
+    <label>
+      Data do nascimento
+      <input type="date" id="nasc-data" required />
+    </label>
+
+    <label>
+      Observações <span class="opcional">(opcional)</span>
+      <textarea id="nasc-observacoes" rows="2"></textarea>
+    </label>
+
+    <p id="nasc-preview" class="nota-rebanho"></p>
+
+    <div class="modal-acoes">
+      <button type="button" id="nasc-btn-cancelar" class="btn btn-secundario">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="js/vendor/chart.umd.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/rebanho.js"></script>
+</body>
+</html>

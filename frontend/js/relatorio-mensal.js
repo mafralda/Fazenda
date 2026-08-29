@@ -10,8 +10,8 @@ const el = {
   cardReceita: document.getElementById('card-receita'),
   cardDespesa: document.getElementById('card-despesa'),
   cardSaldo: document.getElementById('card-saldo'),
-  cardCapex: document.getElementById('card-capex'),
-  cardOpex: document.getElementById('card-opex'),
+  cardSaldoLabel: document.getElementById('card-saldo-label'),
+  cardSaldoWrapper: document.getElementById('card-saldo-wrapper'),
   tabelaDespesasCategoria: document.getElementById('tabela-despesas-categoria'),
   tabelaReceitasCategoria: document.getElementById('tabela-receitas-categoria'),
   tabelaCorpo: document.getElementById('tabela-corpo'),
@@ -44,23 +44,20 @@ async function carregarRelatorio() {
   el.cardReceita.textContent = formatoMoeda.format(dados.total_receitas);
   el.cardDespesa.textContent = formatoMoeda.format(dados.total_despesas);
   el.cardSaldo.textContent = formatoMoeda.format(dados.saldo);
-  el.cardCapex.textContent = formatoMoeda.format(dados.total_capex);
-  el.cardOpex.textContent = formatoMoeda.format(dados.total_opex);
+  el.cardSaldoLabel.textContent = dados.saldo < 0 ? 'Prejuízo do mês' : 'Lucro do mês';
+  el.cardSaldoWrapper.classList.toggle('card-negativo', dados.saldo < 0);
 
   preencherTabelaCategoria(el.tabelaDespesasCategoria, dados.despesas_por_categoria);
   preencherTabelaCategoria(el.tabelaReceitasCategoria, dados.receitas_por_categoria);
 
   if (!dados.lancamentos.length) {
-    el.tabelaCorpo.innerHTML = '<tr><td colspan="8" class="vazio">Nenhum lançamento neste período.</td></tr>';
+    el.tabelaCorpo.innerHTML = '<tr><td colspan="7" class="vazio">Nenhum lançamento neste período.</td></tr>';
     return;
   }
 
   el.tabelaCorpo.innerHTML = dados.lancamentos
     .map((l) => {
       const badgeTipo = `<span class="badge badge-${l.tipo}">${l.tipo === 'receita' ? 'Receita' : 'Despesa'}</span>`;
-      const badgeClassificacao = l.classificacao
-        ? `<span class="badge badge-${l.classificacao}">${l.classificacao.toUpperCase()}</span>`
-        : '—';
       const valorClasse = l.tipo === 'receita' ? 'valor-receita' : 'valor-despesa';
       const sinal = l.tipo === 'receita' ? '+' : '-';
 
@@ -68,7 +65,6 @@ async function carregarRelatorio() {
         <tr>
           <td>${formatoData(l.data)}</td>
           <td>${badgeTipo}</td>
-          <td>${badgeClassificacao}</td>
           <td>${l.categoria_nome}</td>
           <td>${l.subcategoria || ''}</td>
           <td class="col-valor">${l.quantidade ?? ''}</td>

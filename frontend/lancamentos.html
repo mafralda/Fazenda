@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lançamentos — Controle da Fazenda Humaytá</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>Controle da Fazenda Humaytá</h1>
+  <button id="btn-novo-lancamento" class="btn btn-primary">+ Novo lançamento</button>
+</header>
+
+<nav class="navbar">
+  <a href="index.html" class="nav-link">Dashboard Anual</a>
+  <a href="lancamentos.html" class="nav-link active">Lançamentos</a>
+  <a href="relatorio-mensal.html" class="nav-link">Relatório Mensal</a>
+  <a href="rebanho.html" class="nav-link">Rebanho</a>
+</nav>
+
+<main class="container">
+  <section class="periodo-seletor">
+    <button id="btn-ano-atual" class="btn btn-secundario">Ano atual</button>
+    <button id="btn-todos-anos" class="btn btn-secundario">Todos os anos</button>
+    <label>
+      Ano
+      <select id="filtro-ano"></select>
+    </label>
+  </section>
+
+  <section class="filtros">
+    <label>
+      De
+      <input type="date" id="filtro-data-inicio" />
+    </label>
+    <label>
+      Até
+      <input type="date" id="filtro-data-fim" />
+    </label>
+    <label>
+      Tipo
+      <select id="filtro-tipo">
+        <option value="">Todos</option>
+        <option value="receita">Receita</option>
+        <option value="despesa">Despesa</option>
+      </select>
+    </label>
+    <label>
+      Categoria
+      <select id="filtro-categoria">
+        <option value="">Todas</option>
+      </select>
+    </label>
+    <label>
+      Subcategoria
+      <select id="filtro-subcategoria">
+        <option value="">Todas</option>
+      </select>
+    </label>
+    <button id="btn-limpar-filtros" class="btn btn-secundario">Limpar filtros</button>
+  </section>
+
+  <section class="cards" id="cards-resumo">
+    <div class="card card-receita">
+      <span class="card-label">Receita total</span>
+      <span class="card-valor" id="card-receita">R$ 0,00</span>
+    </div>
+    <div class="card card-despesa">
+      <span class="card-label">Despesa total</span>
+      <span class="card-valor" id="card-despesa">R$ 0,00</span>
+    </div>
+    <div class="card card-saldo" id="card-saldo-wrapper">
+      <span class="card-label" id="card-saldo-label">Saldo</span>
+      <span class="card-valor" id="card-saldo">R$ 0,00</span>
+    </div>
+  </section>
+
+  <section class="tabela-wrapper">
+    <table class="tabela-lancamentos">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Tipo</th>
+          <th>Categoria</th>
+          <th>Subcategoria</th>
+          <th class="col-valor">Qtde</th>
+          <th>Descrição</th>
+          <th class="col-valor">Valor</th>
+          <th class="col-acoes">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-corpo">
+        <tr><td colspan="8" class="vazio">Nenhum lançamento ainda.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/lancamento-modal.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

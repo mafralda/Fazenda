@@ -65,14 +65,12 @@ router.get('/anual', (req, res) => {
     nome: NOMES_MES[i],
     receitas: 0,
     despesas: 0,
-    capex: 0,
-    opex: 0,
   }));
 
   const despesasPorCategoria = {};
   const receitasPorCategoria = {};
 
-  const totais = { total_receitas: 0, total_despesas: 0, total_capex: 0, total_opex: 0 };
+  const totais = { total_receitas: 0, total_despesas: 0 };
 
   for (const l of lancamentos) {
     const mesIndex = Number(l.data.slice(5, 7)) - 1;
@@ -85,14 +83,6 @@ router.get('/anual', (req, res) => {
       totais.total_despesas += l.valor;
       porMes[mesIndex].despesas += l.valor;
       despesasPorCategoria[l.categoria_nome] = (despesasPorCategoria[l.categoria_nome] || 0) + l.valor;
-
-      if (l.classificacao === 'capex') {
-        totais.total_capex += l.valor;
-        porMes[mesIndex].capex += l.valor;
-      } else if (l.classificacao === 'opex') {
-        totais.total_opex += l.valor;
-        porMes[mesIndex].opex += l.valor;
-      }
     }
   }
 
@@ -125,7 +115,7 @@ router.get('/mensal', (req, res) => {
 
   const despesasPorCategoria = {};
   const receitasPorCategoria = {};
-  const totais = { total_receitas: 0, total_despesas: 0, total_capex: 0, total_opex: 0 };
+  const totais = { total_receitas: 0, total_despesas: 0 };
 
   for (const l of lancamentos) {
     if (l.tipo === 'receita') {
@@ -134,8 +124,6 @@ router.get('/mensal', (req, res) => {
     } else {
       totais.total_despesas += l.valor;
       despesasPorCategoria[l.categoria_nome] = (despesasPorCategoria[l.categoria_nome] || 0) + l.valor;
-      if (l.classificacao === 'capex') totais.total_capex += l.valor;
-      else if (l.classificacao === 'opex') totais.total_opex += l.valor;
     }
   }
 

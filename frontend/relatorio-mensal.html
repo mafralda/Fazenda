@@ -12,9 +12,10 @@
 </header>
 
 <nav class="navbar">
-  <a href="index.html" class="nav-link">Lançamentos</a>
-  <a href="dashboard.html" class="nav-link">Dashboard Anual</a>
+  <a href="index.html" class="nav-link">Dashboard Anual</a>
+  <a href="lancamentos.html" class="nav-link">Lançamentos</a>
   <a href="relatorio-mensal.html" class="nav-link active">Relatório Mensal</a>
+  <a href="rebanho.html" class="nav-link">Rebanho</a>
 </nav>
 
 <main class="container">
@@ -51,17 +52,9 @@
       <span class="card-label">Despesa do mês</span>
       <span class="card-valor" id="card-despesa">R$ 0,00</span>
     </div>
-    <div class="card card-saldo">
-      <span class="card-label">Saldo do mês</span>
+    <div class="card card-saldo" id="card-saldo-wrapper">
+      <span class="card-label" id="card-saldo-label">Saldo do mês</span>
       <span class="card-valor" id="card-saldo">R$ 0,00</span>
-    </div>
-    <div class="card card-capex">
-      <span class="card-label">CAPEX</span>
-      <span class="card-valor" id="card-capex">R$ 0,00</span>
-    </div>
-    <div class="card card-opex">
-      <span class="card-label">OPEX</span>
-      <span class="card-valor" id="card-opex">R$ 0,00</span>
     </div>
   </section>
 
@@ -88,7 +81,6 @@
         <tr>
           <th>Data</th>
           <th>Tipo</th>
-          <th>Classificação</th>
           <th>Categoria</th>
           <th>Subcategoria</th>
           <th class="col-valor">Qtde</th>
@@ -97,7 +89,7 @@
         </tr>
       </thead>
       <tbody id="tabela-corpo">
-        <tr><td colspan="8" class="vazio">Nenhum lançamento neste período.</td></tr>
+        <tr><td colspan="7" class="vazio">Nenhum lançamento neste período.</td></tr>
       </tbody>
     </table>
   </section>

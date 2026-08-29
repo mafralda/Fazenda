@@ -13,23 +13,12 @@ facilitam a visão geral da saúde financeira da operação.
 
 ---
 
-## 2. Conceito Central: CAPEX x OPEX
+## 2. Classificação de Despesas
 
-Toda **despesa** lançada deve ser classificada como:
-
-- **CAPEX (Capital Expenditure)** — investimentos que geram valor/ativo ao longo do
-  tempo (ex.: compra de trator, construção de benfeitoria, reforma estrutural,
-  aquisição de veículo).
-- **OPEX (Operational Expenditure)** — custos operacionais recorrentes para manter a
-  operação funcionando no dia a dia (ex.: combustível, ração, salários, manutenção
-  corretiva simples).
-
-Essa separação é fundamental para os relatórios e cards do dashboard, permitindo
-enxergar quanto está sendo investido em ativos vs. quanto está sendo gasto para
-operar a fazenda.
-
-**Receitas** não são classificadas em CAPEX/OPEX (esse conceito é só para despesas),
-mas podem ter categorias próprias (ex.: venda de animais, venda de produção).
+> **Atualização:** o conceito de CAPEX/OPEX (classificação de despesas como
+> investimento de capital vs. custo operacional) foi removido do produto — banco de
+> dados, API e interface — por decisão do usuário. Despesas hoje são organizadas
+> apenas por **categoria** (seção 3), sem uma segunda camada de classificação.
 
 ---
 
@@ -42,23 +31,18 @@ mas podem ter categorias próprias (ex.: venda de animais, venda de produção).
 | Outras receitas | Categoria genérica para receitas não previstas. |
 
 ### 3.2 Despesas
-| Categoria | Classificação padrão sugerida | Observação |
-|---|---|---|
-| Mão de obra (diaristas/terceiros) | OPEX | |
-| Salário (funcionários fixos) | OPEX | |
-| Insumos | OPEX | Fertilizantes, sementes, defensivos, etc. |
-| Ração | OPEX | |
-| Manutenção | OPEX (regra geral) | Manutenção corretiva/preventiva de equipamentos e estruturas. Se for uma reforma que amplia/melhora um ativo, pode ser reclassificada como CAPEX no lançamento. |
-| Combustível | OPEX | |
-| Medicamentos (veterinários) | OPEX | |
-| Maquinário / Equipamentos (compra) | CAPEX | Sugestão de categoria adicional para completar o conceito de CAPEX na prática. |
-| Benfeitorias / Construções | CAPEX | Sugestão de categoria adicional. |
-| Outras despesas | Configurável | Categoria genérica. |
-
-> **Nota de design**: a classificação padrão (CAPEX/OPEX) é sugerida automaticamente
-> pela categoria escolhida, mas pode ser **sobrescrita manualmente** em cada
-> lançamento — por exemplo, uma "manutenção" que na prática é uma reforma estrutural
-> grande pode ser marcada como CAPEX.
+| Categoria | Observação |
+|---|---|
+| Mão de obra (diaristas/terceiros) | |
+| Salário (funcionários fixos) | |
+| Insumos | Fertilizantes, sementes, defensivos, etc. |
+| Ração | |
+| Manutenção | Manutenção corretiva/preventiva de equipamentos e estruturas. |
+| Combustível | |
+| Medicamentos (veterinários) | |
+| Maquinário / Equipamentos (compra) | |
+| Benfeitorias / Construções | |
+| Outras despesas | Categoria genérica. |
 
 As categorias serão **configuráveis** (o usuário pode adicionar novas categorias de
 receita/despesa além das listadas acima).
@@ -72,9 +56,10 @@ receita/despesa além das listadas acima).
 |---|---|---|
 | id | UUID / int | Identificador único |
 | tipo | enum: `receita` \| `despesa` | Define se é entrada ou saída |
-| classificacao | enum: `capex` \| `opex` \| `null` | Obrigatório apenas quando `tipo = despesa` |
 | categoria_id | FK → Categoria | Categoria do lançamento |
 | descricao | string | Texto livre descrevendo o lançamento |
+| subcategoria | string (opcional) | Etiqueta livre — ex.: tipo de animal numa venda |
+| quantidade | number (opcional) | Ex.: quantidade de animais vendidos |
 | valor | decimal | Valor em R$ |
 | data | date | Data do lançamento/competência |
 | forma_pagamento | string (opcional) | Ex.: dinheiro, PIX, boleto, cartão |
@@ -87,34 +72,31 @@ receita/despesa além das listadas acima).
 | id | UUID / int | Identificador único |
 | nome | string | Nome da categoria |
 | tipo | enum: `receita` \| `despesa` | A qual grupo pertence |
-| classificacao_padrao | enum: `capex` \| `opex` \| `null` | Sugestão padrão ao selecionar a categoria (só para despesas) |
 | ativo | boolean | Permite "desativar" categorias sem excluir histórico |
 
 ---
 
 ## 5. Telas / Componentes de Interface
 
-### 5.1 Dashboard (Cards)
-Cards de resumo no topo da tela, com filtro de período (mês atual, últimos 12 meses,
-ano, período customizado):
+### 5.1 Dashboard (Cards) — tela inicial da aplicação
+Cards de resumo no topo da tela, com filtro por ano:
 - **Receita total**
 - **Despesa total**
-- **Saldo (Receita − Despesa)**
-- **Total CAPEX**
-- **Total OPEX**
-- Possível gráfico simples (ex.: pizza CAPEX x OPEX, barras receita x despesa por mês)
+- **Lucro** ou **Prejuízo** (Receita − Despesa) — o título do card muda dinamicamente
+  conforme o saldo é positivo ou negativo.
+- Gráficos: receita x despesa por mês, despesas por categoria, receitas por categoria,
+  vendas por tipo de animal.
+- Botão "+ Novo lançamento" disponível diretamente nesta tela.
 
 ### 5.2 Tabela de Lançamentos
 Listagem de todos os lançamentos com:
-- Colunas: Data | Tipo (Receita/Despesa) | Classificação (CAPEX/OPEX) | Categoria | Descrição | Valor
-- Filtros: por período, tipo, categoria, classificação
-- Ordenação por coluna
+- Colunas: Data | Tipo (Receita/Despesa) | Categoria | Subcategoria | Quantidade | Descrição | Valor
+- Filtros: por período (com atalhos "Ano atual" / "Todos os anos"), tipo, categoria, subcategoria
 - Ações: editar / excluir lançamento
 
 ### 5.3 Formulário de Novo Lançamento
 - Campos conforme modelo de dados (seção 4.1)
-- Categoria e classificação com sugestão automática (classificação pré-preenchida
-  conforme a categoria escolhida, mas editável)
+- Disponível tanto na tela de Lançamentos quanto no Dashboard
 
 ### 5.4 Gestão de Categorias
 - Tela simples para adicionar/editar/desativar categorias
@@ -124,8 +106,7 @@ Listagem de todos os lançamentos com:
 ## 6. Arquitetura Técnica
 
 - **Frontend**: HTML + CSS + JavaScript, consumindo uma API backend via fetch/AJAX.
-- **Backend**: API REST em Node.js + Express, responsável pelas regras de negócio
-  (ex.: sugestão automática de classificação CAPEX/OPEX por categoria) e persistência.
+- **Backend**: API REST em Node.js + Express, responsável pelas regras de negócio e persistência.
 - **Banco de dados**: SQLite para começar — simples, sem infraestrutura extra, roda em
   um único arquivo local — com possibilidade de migrar para Postgres no futuro caso
   seja necessário acesso remoto/multiusuário.

@@ -24,10 +24,6 @@ function aplicarFiltros(query, params, filtros) {
     condicoes.push('l.tipo = ?');
     params.push(filtros.tipo);
   }
-  if (filtros.classificacao) {
-    condicoes.push('l.classificacao = ?');
-    params.push(filtros.classificacao);
-  }
   if (filtros.categoria_id) {
     condicoes.push('l.categoria_id = ?');
     params.push(filtros.categoria_id);
@@ -72,12 +68,10 @@ router.get('/resumo', (req, res) => {
         acc.total_receitas += l.valor;
       } else {
         acc.total_despesas += l.valor;
-        if (l.classificacao === 'capex') acc.total_capex += l.valor;
-        if (l.classificacao === 'opex') acc.total_opex += l.valor;
       }
       return acc;
     },
-    { total_receitas: 0, total_despesas: 0, total_capex: 0, total_opex: 0 }
+    { total_receitas: 0, total_despesas: 0 }
   );
 
   resumo.saldo = resumo.total_receitas - resumo.total_despesas;
@@ -86,18 +80,8 @@ router.get('/resumo', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const {
-    tipo,
-    classificacao,
-    categoria_id,
-    descricao,
-    subcategoria,
-    quantidade,
-    valor,
-    data,
-    forma_pagamento,
-    observacoes,
-  } = req.body;
+  const { tipo, categoria_id, descricao, subcategoria, quantidade, valor, data, forma_pagamento, observacoes } =
+    req.body;
 
   if (!tipo || !categoria_id || !valor || !data) {
     return res.status(400).json({ erro: 'tipo, categoria_id, valor e data são obrigatórios' });
@@ -105,21 +89,15 @@ router.post('/', (req, res) => {
   if (!['receita', 'despesa'].includes(tipo)) {
     return res.status(400).json({ erro: 'tipo deve ser "receita" ou "despesa"' });
   }
-  if (tipo === 'despesa' && classificacao && !['capex', 'opex'].includes(classificacao)) {
-    return res.status(400).json({ erro: 'classificacao deve ser "capex" ou "opex"' });
-  }
-
-  const classificacaoFinal = tipo === 'despesa' ? classificacao || null : null;
 
   const info = db
     .prepare(
       `INSERT INTO lancamentos
-        (tipo, classificacao, categoria_id, descricao, subcategoria, quantidade, valor, data, forma_pagamento, observacoes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        (tipo, categoria_id, descricao, subcategoria, quantidade, valor, data, forma_pagamento, observacoes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       tipo,
-      classificacaoFinal,
       categoria_id,
       descricao || null,
       subcategoria || null,
@@ -142,7 +120,6 @@ router.put('/:id', (req, res) => {
 
   const campos = {
     tipo: req.body.tipo ?? existente.tipo,
-    classificacao: req.body.classificacao !== undefined ? req.body.classificacao : existente.classificacao,
     categoria_id: req.body.categoria_id ?? existente.categoria_id,
     descricao: req.body.descricao !== undefined ? req.body.descricao : existente.descricao,
     subcategoria: req.body.subcategoria !== undefined ? req.body.subcategoria : existente.subcategoria,
@@ -155,12 +132,11 @@ router.put('/:id', (req, res) => {
 
   db.prepare(
     `UPDATE lancamentos SET
-      tipo = ?, classificacao = ?, categoria_id = ?, descricao = ?, subcategoria = ?, quantidade = ?,
+      tipo = ?, categoria_id = ?, descricao = ?, subcategoria = ?, quantidade = ?,
       valor = ?, data = ?, forma_pagamento = ?, observacoes = ?, atualizado_em = datetime('now')
      WHERE id = ?`
   ).run(
     campos.tipo,
-    campos.classificacao,
     campos.categoria_id,
     campos.descricao,
     campos.subcategoria,

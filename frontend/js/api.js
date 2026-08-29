@@ -34,4 +34,15 @@ const api = {
     animais: (ano) => apiRequest(`/dashboard/animais?${new URLSearchParams({ ano })}`),
     mensal: (ano, mes) => apiRequest(`/dashboard/mensal?${new URLSearchParams({ ano, mes })}`),
   },
+  rebanho: {
+    anos: (especie) => apiRequest(`/rebanho/anos?${new URLSearchParams({ especie })}`),
+    serie: (especie, ano) => apiRequest(`/rebanho/serie?${new URLSearchParams({ especie, ano })}`),
+    mes: (especie, ano, mes) => apiRequest(`/rebanho/mes?${new URLSearchParams({ especie, ano, mes })}`),
+    categoriasNascimento: (especie) =>
+      apiRequest(`/rebanho/categorias-nascimento?${new URLSearchParams({ especie })}`),
+    registrarNascimento: (dados) =>
+      apiRequest('/rebanho/nascimento', { method: 'POST', body: JSON.stringify(dados) }),
+    excluirNascimento: (id) => apiRequest(`/rebanho/nascimento/${id}`, { method: 'DELETE' }),
+    historico: (especie) => apiRequest(`/rebanho/historico?${new URLSearchParams({ especie })}`),
+  },
 };

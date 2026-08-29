@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Controle da Fazenda Humaytá</title>
+<title>Dashboard Anual — Controle da Fazenda Humaytá</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -13,50 +13,18 @@
 </header>
 
 <nav class="navbar">
-  <a href="index.html" class="nav-link active">Lançamentos</a>
-  <a href="dashboard.html" class="nav-link">Dashboard Anual</a>
+  <a href="index.html" class="nav-link active">Dashboard Anual</a>
+  <a href="lancamentos.html" class="nav-link">Lançamentos</a>
   <a href="relatorio-mensal.html" class="nav-link">Relatório Mensal</a>
+  <a href="rebanho.html" class="nav-link">Rebanho</a>
 </nav>
 
 <main class="container">
-  <section class="filtros">
+  <section class="periodo-seletor">
     <label>
-      De
-      <input type="date" id="filtro-data-inicio" />
+      Ano
+      <select id="seletor-ano"></select>
     </label>
-    <label>
-      Até
-      <input type="date" id="filtro-data-fim" />
-    </label>
-    <label>
-      Tipo
-      <select id="filtro-tipo">
-        <option value="">Todos</option>
-        <option value="receita">Receita</option>
-        <option value="despesa">Despesa</option>
-      </select>
-    </label>
-    <label>
-      Classificação
-      <select id="filtro-classificacao">
-        <option value="">Todas</option>
-        <option value="capex">CAPEX</option>
-        <option value="opex">OPEX</option>
-      </select>
-    </label>
-    <label>
-      Categoria
-      <select id="filtro-categoria">
-        <option value="">Todas</option>
-      </select>
-    </label>
-    <label>
-      Subcategoria
-      <select id="filtro-subcategoria">
-        <option value="">Todas</option>
-      </select>
-    </label>
-    <button id="btn-limpar-filtros" class="btn btn-secundario">Limpar filtros</button>
   </section>
 
   <section class="cards" id="cards-resumo">
@@ -68,115 +36,52 @@
       <span class="card-label">Despesa total</span>
       <span class="card-valor" id="card-despesa">R$ 0,00</span>
     </div>
-    <div class="card card-saldo">
-      <span class="card-label">Saldo</span>
+    <div class="card card-saldo" id="card-saldo-wrapper">
+      <span class="card-label" id="card-saldo-label">Saldo</span>
       <span class="card-valor" id="card-saldo">R$ 0,00</span>
-    </div>
-    <div class="card card-capex">
-      <span class="card-label">CAPEX</span>
-      <span class="card-valor" id="card-capex">R$ 0,00</span>
-    </div>
-    <div class="card card-opex">
-      <span class="card-label">OPEX</span>
-      <span class="card-valor" id="card-opex">R$ 0,00</span>
     </div>
   </section>
 
-  <section class="tabela-wrapper">
-    <table class="tabela-lancamentos">
-      <thead>
-        <tr>
-          <th>Data</th>
-          <th>Tipo</th>
-          <th>Classificação</th>
-          <th>Categoria</th>
-          <th>Subcategoria</th>
-          <th class="col-valor">Qtde</th>
-          <th>Descrição</th>
-          <th class="col-valor">Valor</th>
-          <th class="col-acoes">Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-corpo">
-        <tr><td colspan="9" class="vazio">Nenhum lançamento ainda.</td></tr>
-      </tbody>
-    </table>
+  <section class="graficos-grid">
+    <div class="grafico-card">
+      <h3>Receitas x Despesas por mês</h3>
+      <canvas id="grafico-mensal"></canvas>
+    </div>
+    <div class="grafico-card">
+      <h3>Despesas por categoria</h3>
+      <canvas id="grafico-despesas-categoria"></canvas>
+    </div>
+    <div class="grafico-card">
+      <h3>Receitas por categoria</h3>
+      <canvas id="grafico-receitas-categoria"></canvas>
+    </div>
+  </section>
+
+  <section class="grafico-card">
+    <h3>Vendas por tipo de animal</h3>
+    <div class="tabelas-categoria-grid">
+      <table class="tabela-categoria">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Qtde vendida</th>
+            <th>Nº de vendas</th>
+            <th>Preço médio</th>
+            <th>Valor total</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-animais"></tbody>
+      </table>
+      <div>
+        <canvas id="grafico-animais"></canvas>
+      </div>
+    </div>
   </section>
 </main>
 
-<dialog id="modal-lancamento">
-  <form id="form-lancamento" method="dialog">
-    <h2 id="modal-titulo">Novo lançamento</h2>
-    <input type="hidden" id="lancamento-id" />
-
-    <label>
-      Tipo
-      <select id="campo-tipo" required>
-        <option value="receita">Receita</option>
-        <option value="despesa">Despesa</option>
-      </select>
-    </label>
-
-    <label id="grupo-classificacao">
-      Classificação
-      <select id="campo-classificacao">
-        <option value="">—</option>
-        <option value="capex">CAPEX</option>
-        <option value="opex">OPEX</option>
-      </select>
-    </label>
-
-    <label>
-      Categoria
-      <select id="campo-categoria" required></select>
-    </label>
-
-    <label>
-      Descrição
-      <input type="text" id="campo-descricao" placeholder="Ex: compra de ração para o rebanho" />
-    </label>
-
-    <div class="campo-linha">
-      <label>
-        Subcategoria <span class="opcional">(opcional)</span>
-        <input type="text" id="campo-subcategoria" list="lista-subcategorias" placeholder="Ex: Ovelha, Borrego, Carneiro..." />
-        <datalist id="lista-subcategorias"></datalist>
-      </label>
-
-      <label>
-        Quantidade <span class="opcional">(opcional)</span>
-        <input type="number" id="campo-quantidade" step="0.01" min="0" placeholder="Ex: 9" />
-      </label>
-    </div>
-
-    <label>
-      Valor (R$)
-      <input type="number" id="campo-valor" step="0.01" min="0" required />
-    </label>
-
-    <label>
-      Data
-      <input type="date" id="campo-data" required />
-    </label>
-
-    <label>
-      Forma de pagamento
-      <input type="text" id="campo-forma-pagamento" placeholder="Ex: PIX, dinheiro, boleto" />
-    </label>
-
-    <label>
-      Observações
-      <textarea id="campo-observacoes" rows="2"></textarea>
-    </label>
-
-    <div class="modal-acoes">
-      <button type="button" id="btn-cancelar" class="btn btn-secundario">Cancelar</button>
-      <button type="submit" id="btn-salvar" class="btn btn-primary">Salvar</button>
-    </div>
-  </form>
-</dialog>
-
+<script src="js/vendor/chart.umd.min.js"></script>
 <script src="js/api.js"></script>
-<script src="js/app.js"></script>
+<script src="js/lancamento-modal.js"></script>
+<script src="js/dashboard.js"></script>
 </body>
 </html>

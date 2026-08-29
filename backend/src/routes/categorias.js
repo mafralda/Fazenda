@@ -18,7 +18,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { nome, tipo, classificacao_padrao } = req.body;
+  const { nome, tipo } = req.body;
 
   if (!nome || !tipo) {
     return res.status(400).json({ erro: 'nome e tipo são obrigatórios' });
@@ -26,13 +26,8 @@ router.post('/', (req, res) => {
   if (!['receita', 'despesa'].includes(tipo)) {
     return res.status(400).json({ erro: 'tipo deve ser "receita" ou "despesa"' });
   }
-  if (classificacao_padrao && !['capex', 'opex'].includes(classificacao_padrao)) {
-    return res.status(400).json({ erro: 'classificacao_padrao deve ser "capex" ou "opex"' });
-  }
 
-  const info = db
-    .prepare('INSERT INTO categorias (nome, tipo, classificacao_padrao) VALUES (?, ?, ?)')
-    .run(nome, tipo, classificacao_padrao || null);
+  const info = db.prepare('INSERT INTO categorias (nome, tipo) VALUES (?, ?)').run(nome, tipo);
 
   res.status(201).json(db.prepare('SELECT * FROM categorias WHERE id = ?').get(info.lastInsertRowid));
 });
@@ -43,16 +38,8 @@ router.put('/:id', (req, res) => {
   if (!existente) return res.status(404).json({ erro: 'categoria não encontrada' });
 
   const nome = req.body.nome ?? existente.nome;
-  const classificacao_padrao =
-    req.body.classificacao_padrao !== undefined
-      ? req.body.classificacao_padrao
-      : existente.classificacao_padrao;
 
-  db.prepare('UPDATE categorias SET nome = ?, classificacao_padrao = ? WHERE id = ?').run(
-    nome,
-    classificacao_padrao,
-    id
-  );
+  db.prepare('UPDATE categorias SET nome = ? WHERE id = ?').run(nome, id);
 
   res.json(db.prepare('SELECT * FROM categorias WHERE id = ?').get(id));
 });

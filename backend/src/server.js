@@ -7,6 +7,7 @@ require('./db/schema');
 const categoriasRouter = require('./routes/categorias');
 const lancamentosRouter = require('./routes/lancamentos');
 const dashboardRouter = require('./routes/dashboard');
+const rebanhoRouter = require('./routes/rebanho');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/api/categorias', categoriasRouter);
 app.use('/api/lancamentos', lancamentosRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/rebanho', rebanhoRouter);
 
 app.use(express.static(path.join(__dirname, '..', '..', 'frontend')));
 
