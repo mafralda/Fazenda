@@ -312,7 +312,7 @@ test('GET /historico filtra por período e por evento', async () => {
 
 test('GET /historico rejeita filtros inválidos', async () => {
   const ruim = async (query) => (await chamar('GET', `/historico?especie=ovino&${query}`)).status;
-  assert.equal(await ruim('evento=venda'), 400);
+  assert.equal(await ruim('evento=paricao'), 400);
   assert.equal(await ruim('data_inicio=2040-13-01'), 400);
   assert.equal(await ruim('data_fim=ontem'), 400);
   assert.equal(await ruim('data_inicio=2040-05-01&data_fim=2040-04-01'), 400);

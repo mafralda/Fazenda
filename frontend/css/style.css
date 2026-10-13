@@ -263,6 +263,8 @@ body {
 .badge-nascimento { background: #e8f5e9; color: var(--verde-escuro); }
 .badge-transicao { background: #e3f2fd; color: var(--azul); }
 .badge-obito { background: #ffebee; color: var(--vermelho); }
+.badge-venda { background: #fff3e0; color: #e65100; }
+.badge-compra { background: #ede7f6; color: #4527a0; }
 
 .obs-automatica {
   color: var(--texto-suave);

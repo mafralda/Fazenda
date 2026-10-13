@@ -329,6 +329,21 @@ function linhaHistorico(ev) {
       </tr>`;
   }
 
+  // Venda/compra vêm de um lançamento financeiro: só mudam em Lançamentos, então sem botões.
+  if (ev.tipo === 'venda' || ev.tipo === 'compra') {
+    const ehVenda = ev.tipo === 'venda';
+    const detalhe = ev.observacoes ? `: ${escapar(ev.observacoes)}` : '';
+    return `
+      <tr>
+        <td>${formatoDataCurta(ev.data)}</td>
+        <td><span class="badge ${ehVenda ? 'badge-venda' : 'badge-compra'}">${ehVenda ? 'Venda' : 'Compra'}</span></td>
+        <td>${escapar(ev.categoria)}</td>
+        <td class="col-valor">${ev.quantidade}</td>
+        <td class="obs-automatica">gerada pelo lançamento${detalhe}</td>
+        <td class="col-acoes"></td>
+      </tr>`;
+  }
+
   // Gerado por uma parição: só muda pela parição (aba Parições), então sem botões.
   const daParicao = Boolean(ev.paricao_id);
   const ehObito = ev.tipo === 'obito';

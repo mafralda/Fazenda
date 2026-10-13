@@ -303,3 +303,35 @@ test('categoria_id inexistente devolve 400', async () => {
   });
   assert.equal(res.status, 400);
 });
+
+test('GET /rebanho/historico lista vendas e compras com filtro por evento, e some ao excluir', async () => {
+  await semearOvelha();
+  const v = await chamar('POST', '/lancamentos', venda());
+  const c = await chamar('POST', '/lancamentos', venda({
+    tipo: 'despesa', categoria_id: idCategoria('Compra de animais'), descricao: 'Compra de ovelhas',
+    quantidade: 2, data: '2026-04-05',
+  }));
+  assert.equal(v.status, 201);
+  assert.equal(c.status, 201);
+
+  const buscar = async (query = '') => (await chamar('GET', `/rebanho/historico?especie=ovino${query}`)).corpo;
+
+  const eventos = await buscar();
+  const venda1 = eventos.find((e) => e.tipo === 'venda');
+  const compra1 = eventos.find((e) => e.tipo === 'compra');
+  assert.deepEqual(
+    [venda1.data, venda1.categoria, venda1.quantidade, venda1.observacoes, venda1.lancamento_id],
+    ['2026-03-10', 'Ovelha', 3, 'Venda de ovelhas', v.corpo.id]
+  );
+  assert.deepEqual([compra1.data, compra1.quantidade, compra1.lancamento_id], ['2026-04-05', 2, c.corpo.id]);
+
+  assert.deepEqual((await buscar('&evento=venda')).map((e) => e.tipo), ['venda']);
+  assert.deepEqual((await buscar('&evento=compra')).map((e) => e.tipo), ['compra']);
+  assert.deepEqual((await buscar('&data_inicio=2026-04-01&data_fim=2026-04-30')).map((e) => e.tipo), ['compra']);
+  // outra espécie não enxerga
+  assert.deepEqual((await chamar('GET', '/rebanho/historico?especie=bovino')).corpo, []);
+
+  await chamar('DELETE', `/lancamentos/${v.corpo.id}`);
+  await chamar('DELETE', `/lancamentos/${c.corpo.id}`);
+  assert.deepEqual((await buscar()).map((e) => e.tipo), []);
+});

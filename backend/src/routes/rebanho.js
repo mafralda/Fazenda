@@ -424,10 +424,11 @@ router.put('/transicao/:id', (req, res) => {
   });
 });
 
-const TIPOS_EVENTO = ['nascimento', 'obito', 'transicao'];
+const TIPOS_EVENTO = ['nascimento', 'obito', 'transicao', 'venda', 'compra'];
 
 // Filtros opcionais: data_inicio/data_fim (AAAA-MM-DD, inclusivos) e evento
-// (nascimento | obito | transicao). Transições só têm mês, então entram quando o
+// (nascimento | obito | transicao | venda | compra). Vendas e compras vêm dos lançamentos
+// financeiros vinculados ao rebanho (rebanho_lancamentos). Transições só têm mês, então entram quando o
 // mês delas cruza o intervalo (comparação por AAAA-MM).
 router.get('/historico', validarEspecie, (req, res) => {
   const { especie, data_inicio: dataInicio, data_fim: dataFim, evento } = req.query;
@@ -521,6 +522,32 @@ router.get('/historico', validarEspecie, (req, res) => {
         categoria_destino: t.categoria_destino,
         quantidade: t.quantidade,
         id: t.id,
+      });
+    }
+  }
+
+  // Venda e compra de animais feitas pelos lançamentos: somente leitura aqui (mudam em Lançamentos).
+  for (const movimento of ['venda', 'compra']) {
+    if (!incluir(movimento)) continue;
+    const filtro = filtroPorData('rl.data');
+    const vinculos = db
+      .prepare(
+        `SELECT rl.lancamento_id, rl.categoria, rl.quantidade, rl.data, l.descricao
+         FROM rebanho_lancamentos rl
+         JOIN lancamentos l ON l.id = rl.lancamento_id
+         WHERE rl.especie = ? AND rl.movimento = ?${filtro.sql}
+         ORDER BY rl.data DESC, rl.lancamento_id DESC`
+      )
+      .all(especie, movimento, ...filtro.params);
+    for (const v of vinculos) {
+      eventos.push({
+        tipo: movimento,
+        data: v.data,
+        categoria: v.categoria,
+        quantidade: v.quantidade,
+        observacoes: v.descricao,
+        id: v.lancamento_id,
+        lancamento_id: v.lancamento_id,
       });
     }
   }
