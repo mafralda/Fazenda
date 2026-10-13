@@ -424,6 +424,7 @@ dialog::backdrop {
 #form-lancamento,
 #form-nascimento,
 #form-obito,
+#form-paricao,
 #form-transicao {
   display: flex;
   flex-direction: column;
@@ -434,6 +435,7 @@ dialog::backdrop {
 #form-lancamento label,
 #form-nascimento label,
 #form-obito label,
+#form-paricao label,
 #form-transicao label {
   display: flex;
   flex-direction: column;
@@ -451,12 +453,95 @@ dialog::backdrop {
 #form-obito input,
 #form-obito select,
 #form-obito textarea,
+#form-paricao input,
+#form-paricao textarea,
 #form-transicao input {
   padding: 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--cinza-borda);
   font-size: 0.9rem;
   font-family: inherit;
+}
+
+/* Modal de parição: campos numéricos agrupados em duas colunas (não colapsam no celular: são 1 a 4 dígitos) */
+#modal-paricao {
+  width: min(640px, 94vw);
+}
+
+#par-campos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+#form-paricao small {
+  font-weight: 400;
+  color: #94a094;
+}
+
+.grupo {
+  border: 1px solid var(--cinza-borda);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.grupo legend {
+  padding: 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+
+.campo-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+#form-paricao .campo-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--texto);
+}
+
+#form-paricao .campo-check input {
+  width: auto;
+}
+
+/* campo calculado automaticamente (crias, total de mortos) até o usuário digitar por cima */
+.campo-auto input {
+  font-style: italic;
+  background: #f4f7f4;
+}
+
+.aviso-ambar {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  color: #6d4c00;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.aviso-lista {
+  list-style: disc inside;
+}
+
+.badge-neutro { background: #eceff1; color: var(--texto-suave); }
+
+.tabela-paricoes th,
+.tabela-paricoes td {
+  white-space: nowrap;
+}
+
+.tabela-paricoes td.obs {
+  white-space: normal;
+  min-width: 10rem;
 }
 
 .opcional {
@@ -560,6 +645,7 @@ dialog::backdrop {
   #form-lancamento,
   #form-nascimento,
   #form-obito,
+  #form-paricao,
   #form-transicao {
     height: 100%;
     overflow-y: auto;
@@ -586,6 +672,8 @@ dialog::backdrop {
   #form-obito input,
   #form-obito select,
   #form-obito textarea,
+  #form-paricao input,
+  #form-paricao textarea,
   #form-transicao input {
     font-size: 16px;
   }

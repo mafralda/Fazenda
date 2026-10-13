@@ -10,6 +10,7 @@
 <header class="topbar">
   <h1>Controle da Fazenda Humaytá</h1>
   <div class="topbar-acoes">
+    <button id="btn-nova-paricao" class="btn btn-primary" hidden>+ Registrar parição</button>
     <button id="btn-novo-obito" class="btn btn-secundario">+ Registrar óbito</button>
     <button id="btn-novo-nascimento" class="btn btn-primary">+ Registrar nascimento</button>
   </div>
@@ -37,6 +38,7 @@
   <div class="sub-tabs">
     <button id="tab-visao-geral" class="sub-tab ativo">Visão Geral</button>
     <button id="tab-historico" class="sub-tab">Histórico</button>
+    <button id="tab-paricoes" class="sub-tab" hidden>Parições</button>
   </div>
 
   <div id="aba-visao-geral">
@@ -129,6 +131,40 @@
       </div>
     </section>
   </div>
+
+  <div id="aba-paricoes" style="display:none">
+    <section class="grafico-card">
+      <h3>Parições</h3>
+      <p class="nota-rebanho">
+        Cada parição lançada no rebanho soma os borregos e borregas vivos e dá baixa nas ovelhas mortas.
+        As demais colunas são o registro do evento.
+      </p>
+      <div class="tabela-wrapper">
+        <table class="tabela-categoria tabela-paricoes">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th class="col-valor">Ovelhas</th>
+              <th class="col-valor">Crias</th>
+              <th class="col-valor">Borregos vivos</th>
+              <th class="col-valor">Borregas vivas</th>
+              <th class="col-valor">Partos duplos</th>
+              <th class="col-valor">Aleijados</th>
+              <th class="col-valor">Natimortos</th>
+              <th class="col-valor">Mortes</th>
+              <th class="col-valor">Total de mortos</th>
+              <th class="col-valor">Ovelhas mortas</th>
+              <th class="col-valor">Abortos</th>
+              <th>Rebanho</th>
+              <th>Observações</th>
+              <th class="col-acoes">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-paricoes"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 </main>
 
 <dialog id="modal-nascimento">
@@ -210,6 +246,42 @@
     <div class="modal-acoes">
       <button type="button" id="obito-btn-cancelar" class="btn btn-secundario">Cancelar</button>
       <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-paricao">
+  <form id="form-paricao" method="dialog">
+    <h2 id="par-titulo">Registrar parição</h2>
+
+    <label>
+      Data da parição <small>(o mês define os nascimentos e as transições)</small>
+      <input type="date" id="par-data" required />
+    </label>
+
+    <div id="par-campos"></div>
+
+    <label>
+      Observações <span class="opcional">(opcional)</span>
+      <textarea id="par-observacoes" rows="2"></textarea>
+    </label>
+
+    <label class="campo-check">
+      <input type="checkbox" id="par-aplicar" checked />
+      Lançar borregos, borregas e ovelhas mortas no rebanho
+    </label>
+    <p id="par-aviso-planilha" class="aviso-ambar" hidden></p>
+    <p id="par-previa" class="nota-rebanho"></p>
+    <ul id="par-inconsistencias" class="aviso-ambar aviso-lista" hidden></ul>
+    <p id="par-aviso-edicao" class="nota-rebanho" hidden>
+      Mudar a data, os borregos, as borregas ou as ovelhas mortas refaz esses lançamentos no rebanho; ajustes manuais
+      feitos nas transições dos borregos e borregas se perdem. Morte de borrego depois do nascimento se registra em
+      "Registrar óbito", não aqui.
+    </p>
+
+    <div class="modal-acoes">
+      <button type="button" id="par-btn-cancelar" class="btn btn-secundario">Cancelar</button>
+      <button type="submit" id="par-btn-salvar" class="btn btn-primary">Salvar</button>
     </div>
   </form>
 </dialog>

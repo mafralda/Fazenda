@@ -91,6 +91,30 @@ CREATE TABLE IF NOT EXISTS rebanho_lancamentos (
   movimento TEXT NOT NULL CHECK (movimento IN ('venda', 'compra')),
   data TEXT NOT NULL
 );
+
+-- Parição (ovinos): resumo do evento como na planilha. Os números ficam aqui; o efeito
+-- no rebanho vem de nascimentos (borregos/borregas vivos) e de um óbito (ovelhas mortas)
+-- gravados em rebanho_nascimentos/rebanho_obitos com paricao_id apontando para esta linha.
+-- aplicado_no_rebanho = 0 guarda só as estatísticas (ex.: mês que já está nas planilhas).
+CREATE TABLE IF NOT EXISTS rebanho_paricoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  especie TEXT NOT NULL DEFAULT 'ovino' CHECK (especie IN ('bovino', 'ovino')),
+  data TEXT NOT NULL,
+  ovelhas INTEGER NOT NULL DEFAULT 0,
+  crias INTEGER NOT NULL DEFAULT 0,
+  borregos_vivos INTEGER NOT NULL DEFAULT 0,
+  borregas_vivas INTEGER NOT NULL DEFAULT 0,
+  partos_duplos INTEGER NOT NULL DEFAULT 0,
+  aleijados INTEGER NOT NULL DEFAULT 0,
+  natimortos INTEGER NOT NULL DEFAULT 0,
+  mortes INTEGER NOT NULL DEFAULT 0,
+  total_mortos INTEGER NOT NULL DEFAULT 0,
+  ovelhas_mortas INTEGER NOT NULL DEFAULT 0,
+  abortos INTEGER NOT NULL DEFAULT 0,
+  aplicado_no_rebanho INTEGER NOT NULL DEFAULT 1,
+  observacoes TEXT,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 const count = db.prepare('SELECT COUNT(*) as total FROM categorias').get().total;
@@ -142,6 +166,18 @@ const colunasSnapshots = db.prepare('PRAGMA table_info(rebanho_snapshots)').all(
 if (!colunasSnapshots.some((c) => c.name === 'compras')) {
   db.exec('ALTER TABLE rebanho_snapshots ADD COLUMN compras INTEGER NOT NULL DEFAULT 0');
   console.log('Coluna compras adicionada em rebanho_snapshots.');
+}
+
+// Nascimentos e óbitos gerados por uma parição apontam para ela (paricao_id). A coluna é
+// adicionada por ALTER tanto em banco novo quanto em existente, para os dois terem o
+// mesmo schema. FK sem CASCADE de propósito: a ordem de exclusão é feita no código.
+for (const tabela of ['rebanho_nascimentos', 'rebanho_obitos']) {
+  const colunas = db.prepare(`PRAGMA table_info(${tabela})`).all();
+  if (!colunas.some((c) => c.name === 'paricao_id')) {
+    db.exec(`ALTER TABLE ${tabela} ADD COLUMN paricao_id INTEGER REFERENCES rebanho_paricoes(id)`);
+    console.log(`Coluna paricao_id adicionada em ${tabela}.`);
+  }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_${tabela}_paricao ON ${tabela}(paricao_id)`);
 }
 
 // Remove os campos de CAPEX/OPEX de bancos criados antes dessa mudança.

@@ -165,13 +165,129 @@ function avisosDeSaldo(especie, categorias, datas) {
   return avisos;
 }
 
+// Cadeia de maturação por espécie/categoria de nascimento: quantos meses após o
+// nascimento cada transição acontece, e para qual categoria o animal vai.
+const CADEIAS_MATURACAO = {
+  // `meses` conta a partir do nascimento. Reprodutor NÃO entra na cadeia: o carneiro só
+  // vira reprodutor se for promovido ao posto (decisão em aberto — ver ARQUITETURA.md 4.3).
+  ovino: {
+    Borrego: [
+      { meses: 3, categoria: 'Marrão' },
+      { meses: 12, categoria: 'Carneiro' },
+    ],
+    Borrega: [
+      { meses: 3, categoria: 'Marrã' },
+      { meses: 12, categoria: 'Ovelha' },
+    ],
+  },
+  bovino: {
+    Bezerro: [
+      { meses: 12, categoria: 'Garrote' },
+      { meses: 24, categoria: 'Novilho' },
+      { meses: 36, categoria: 'Touro' },
+    ],
+    Bezerra: [
+      { meses: 12, categoria: 'Garrota' },
+      { meses: 24, categoria: 'Novilha' },
+      { meses: 36, categoria: 'Vaca' },
+    ],
+  },
+};
+
+function validarEspecie(req, res, next) {
+  const { especie } = req.query;
+  if (!especie || !['bovino', 'ovino'].includes(especie)) {
+    return res.status(400).json({ erro: 'parâmetro especie deve ser "bovino" ou "ovino"' });
+  }
+  next();
+}
+
+function somarMeses(dataISO, quantidadeMeses) {
+  const [ano, mes] = dataISO.split('-').map(Number);
+  const totalMeses = ano * 12 + (mes - 1) + quantidadeMeses;
+  return { ano: Math.floor(totalMeses / 12), mes: (totalMeses % 12) + 1 };
+}
+
+function categoriasDaCadeia(especie, categoria) {
+  return [categoria, ...CADEIAS_MATURACAO[especie][categoria].map((etapa) => etapa.categoria)];
+}
+
+// Aplica no snapshot o nascimento (já gravado em rebanho_nascimentos) e gera a
+// cadeia de transições de maturação.
+function aplicarNascimento(id, { especie, categoria, quantidade, data }) {
+  const cadeia = CADEIAS_MATURACAO[especie][categoria];
+  const [anoNasc, mesNasc] = data.split('-').map(Number);
+  aplicarAjuste(especie, categoria, anoNasc, mesNasc, 'nascimentos', quantidade);
+
+  const inserirTransicao = db.prepare(
+    `INSERT INTO rebanho_transicoes (especie, categoria_origem, categoria_destino, quantidade, ano, mes, nascimento_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  let categoriaAtual = categoria;
+  for (const etapa of cadeia) {
+    const { ano, mes } = somarMeses(data, etapa.meses);
+    aplicarAjuste(especie, categoriaAtual, ano, mes, 'evolucao', -quantidade);
+    aplicarAjuste(especie, etapa.categoria, ano, mes, 'evolucao', quantidade);
+    inserirTransicao.run(especie, categoriaAtual, etapa.categoria, quantidade, ano, mes, id);
+    categoriaAtual = etapa.categoria;
+  }
+}
+
+// Desfaz o efeito de um nascimento no snapshot e apaga as transições dele
+// (a linha em rebanho_nascimentos é mantida: quem chama decide se apaga ou atualiza).
+function reverterNascimento(nascimento) {
+  const [anoNasc, mesNasc] = nascimento.data.split('-').map(Number);
+  aplicarAjuste(nascimento.especie, nascimento.categoria, anoNasc, mesNasc, 'nascimentos', -nascimento.quantidade);
+
+  const transicoes = db.prepare('SELECT * FROM rebanho_transicoes WHERE nascimento_id = ?').all(nascimento.id);
+  for (const t of transicoes) {
+    aplicarAjuste(t.especie, t.categoria_origem, t.ano, t.mes, 'evolucao', t.quantidade);
+    aplicarAjuste(t.especie, t.categoria_destino, t.ano, t.mes, 'evolucao', -t.quantidade);
+  }
+  db.prepare('DELETE FROM rebanho_transicoes WHERE nascimento_id = ?').run(nascimento.id);
+}
+
+// O óbito reduz a categoria no mês em que ocorreu e desce para os meses seguintes.
+// Ele NÃO cancela transições de maturação já agendadas (o sistema não rastreia
+// animal a animal), então um óbito antes de uma transição futura continua
+// "evoluindo" a quantidade original. Quando isso deixa algum mês com saldo negativo,
+// a resposta traz `avisos` (não bloqueia); ajuste a transição (PUT /transicao/:id).
+// Já o saldo do próprio mês do óbito é validado: óbitos > animais existentes dá 400.
+function aplicarObito(obito) {
+  const [ano, mes] = obito.data.split('-').map(Number);
+  aplicarAjuste(obito.especie, obito.categoria, ano, mes, 'obitos', obito.quantidade);
+
+  const { total } = db
+    .prepare('SELECT total FROM rebanho_snapshots WHERE especie=? AND categoria=? AND ano=? AND mes=?')
+    .get(obito.especie, obito.categoria, ano, mes);
+  if (total < 0) {
+    throw new ErroNegocio(
+      `saldo insuficiente de ${obito.categoria} em ${String(mes).padStart(2, '0')}/${ano} (disponível: ${total + obito.quantidade})`
+    );
+  }
+}
+
+function reverterObito(obito) {
+  const [ano, mes] = obito.data.split('-').map(Number);
+  aplicarAjuste(obito.especie, obito.categoria, ano, mes, 'obitos', -obito.quantidade);
+}
+
 module.exports = {
   ORDEM_CATEGORIAS,
+  CADEIAS_MATURACAO,
   ErroNegocio,
   executar,
+  validarEspecie,
   dataISOValida,
   inteiroPositivo,
   exigirAnoPlausivel,
+  somarMeses,
+  categoriasDaCadeia,
   aplicarAjuste,
+  aplicarNascimento,
+  reverterNascimento,
+  aplicarObito,
+  reverterObito,
   avisosDeSaldo,
 };

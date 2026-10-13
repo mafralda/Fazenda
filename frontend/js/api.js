@@ -52,6 +52,11 @@ const api = {
     excluirObito: (id) => apiRequest(`/rebanho/obito/${id}`, { method: 'DELETE' }),
     atualizarTransicao: (id, dados) =>
       apiRequest(`/rebanho/transicao/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
+    paricoes: (especie) => apiRequest(`/rebanho/paricoes?${new URLSearchParams({ especie })}`),
+    registrarParicao: (dados) => apiRequest('/rebanho/paricao', { method: 'POST', body: JSON.stringify(dados) }),
+    atualizarParicao: (id, dados) =>
+      apiRequest(`/rebanho/paricao/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
+    excluirParicao: (id) => apiRequest(`/rebanho/paricao/${id}`, { method: 'DELETE' }),
     // filtros: { data_inicio, data_fim, evento } — valores vazios são omitidos
     historico: (especie, filtros = {}) => {
       const params = { especie };

@@ -2,12 +2,19 @@ const express = require('express');
 const db = require('../db');
 const {
   ORDEM_CATEGORIAS,
+  CADEIAS_MATURACAO,
   ErroNegocio,
   executar,
+  validarEspecie,
   dataISOValida,
   inteiroPositivo,
   exigirAnoPlausivel,
+  categoriasDaCadeia,
   aplicarAjuste,
+  aplicarNascimento,
+  reverterNascimento,
+  aplicarObito,
+  reverterObito,
   avisosDeSaldo,
 } = require('../rebanho-core');
 
@@ -17,49 +24,6 @@ const NOMES_MES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
-
-// Cadeia de maturação por espécie/categoria de nascimento: quantos meses após o
-// nascimento cada transição acontece, e para qual categoria o animal vai.
-const CADEIAS_MATURACAO = {
-  // `meses` conta a partir do nascimento. Reprodutor NÃO entra na cadeia: o carneiro só
-  // vira reprodutor se for promovido ao posto (decisão em aberto — ver ARQUITETURA.md 4.3).
-  ovino: {
-    Borrego: [
-      { meses: 3, categoria: 'Marrão' },
-      { meses: 12, categoria: 'Carneiro' },
-    ],
-    Borrega: [
-      { meses: 3, categoria: 'Marrã' },
-      { meses: 12, categoria: 'Ovelha' },
-    ],
-  },
-  bovino: {
-    Bezerro: [
-      { meses: 12, categoria: 'Garrote' },
-      { meses: 24, categoria: 'Novilho' },
-      { meses: 36, categoria: 'Touro' },
-    ],
-    Bezerra: [
-      { meses: 12, categoria: 'Garrota' },
-      { meses: 24, categoria: 'Novilha' },
-      { meses: 36, categoria: 'Vaca' },
-    ],
-  },
-};
-
-function validarEspecie(req, res, next) {
-  const { especie } = req.query;
-  if (!especie || !['bovino', 'ovino'].includes(especie)) {
-    return res.status(400).json({ erro: 'parâmetro especie deve ser "bovino" ou "ovino"' });
-  }
-  next();
-}
-
-function somarMeses(dataISO, quantidadeMeses) {
-  const [ano, mes] = dataISO.split('-').map(Number);
-  const totalMeses = ano * 12 + (mes - 1) + quantidadeMeses;
-  return { ano: Math.floor(totalMeses / 12), mes: (totalMeses % 12) + 1 };
-}
 
 function lerQuantidadeEData(corpo) {
   const quantidade = inteiroPositivo(corpo.quantidade);
@@ -71,10 +35,6 @@ function lerQuantidadeEData(corpo) {
   }
   exigirAnoPlausivel(Number(corpo.data.slice(0, 4)), 'ano da data');
   return { quantidade, data: corpo.data };
-}
-
-function categoriasDaCadeia(especie, categoria) {
-  return [categoria, ...CADEIAS_MATURACAO[especie][categoria].map((etapa) => etapa.categoria)];
 }
 
 function lerEspecie(corpo) {
@@ -94,6 +54,22 @@ function lerCategoriaRebanho(especie, categoria) {
   if (!ORDEM_CATEGORIAS[especie].includes(categoria)) {
     throw new ErroNegocio(`categoria inválida para ${especie}`);
   }
+}
+
+function formatoDataBR(dataISO) {
+  const [ano, mes, dia] = dataISO.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+// Nascimentos e óbitos gerados por uma parição só mudam pela própria parição (senão
+// ficariam diferentes do que ela registrou). Se for o caso, já responde 400 e devolve true.
+function recusarSeDeParicao(res, registro) {
+  if (!registro.paricao_id) return false;
+  const paricao = db.prepare('SELECT data FROM rebanho_paricoes WHERE id = ?').get(registro.paricao_id);
+  res.status(400).json({
+    erro: `gerado pela parição de ${formatoDataBR(paricao.data)}: edite ou exclua a parição na aba Parições`,
+  });
+  return true;
 }
 
 function textoOuNulo(valor) {
@@ -278,42 +254,6 @@ router.get('/categorias', validarEspecie, (req, res) => {
   res.json(ORDEM_CATEGORIAS[req.query.especie]);
 });
 
-// Aplica no snapshot o nascimento (já gravado em rebanho_nascimentos) e gera a
-// cadeia de transições de maturação.
-function aplicarNascimento(id, { especie, categoria, quantidade, data }) {
-  const cadeia = CADEIAS_MATURACAO[especie][categoria];
-  const [anoNasc, mesNasc] = data.split('-').map(Number);
-  aplicarAjuste(especie, categoria, anoNasc, mesNasc, 'nascimentos', quantidade);
-
-  const inserirTransicao = db.prepare(
-    `INSERT INTO rebanho_transicoes (especie, categoria_origem, categoria_destino, quantidade, ano, mes, nascimento_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  );
-
-  let categoriaAtual = categoria;
-  for (const etapa of cadeia) {
-    const { ano, mes } = somarMeses(data, etapa.meses);
-    aplicarAjuste(especie, categoriaAtual, ano, mes, 'evolucao', -quantidade);
-    aplicarAjuste(especie, etapa.categoria, ano, mes, 'evolucao', quantidade);
-    inserirTransicao.run(especie, categoriaAtual, etapa.categoria, quantidade, ano, mes, id);
-    categoriaAtual = etapa.categoria;
-  }
-}
-
-// Desfaz o efeito de um nascimento no snapshot e apaga as transições dele
-// (a linha em rebanho_nascimentos é mantida: quem chama decide se apaga ou atualiza).
-function reverterNascimento(nascimento) {
-  const [anoNasc, mesNasc] = nascimento.data.split('-').map(Number);
-  aplicarAjuste(nascimento.especie, nascimento.categoria, anoNasc, mesNasc, 'nascimentos', -nascimento.quantidade);
-
-  const transicoes = db.prepare('SELECT * FROM rebanho_transicoes WHERE nascimento_id = ?').all(nascimento.id);
-  for (const t of transicoes) {
-    aplicarAjuste(t.especie, t.categoria_origem, t.ano, t.mes, 'evolucao', t.quantidade);
-    aplicarAjuste(t.especie, t.categoria_destino, t.ano, t.mes, 'evolucao', -t.quantidade);
-  }
-  db.prepare('DELETE FROM rebanho_transicoes WHERE nascimento_id = ?').run(nascimento.id);
-}
-
 router.post('/nascimento', (req, res) => {
   executar(res, () => {
     const especie = lerEspecie(req.body);
@@ -339,6 +279,7 @@ router.post('/nascimento', (req, res) => {
 router.put('/nascimento/:id', (req, res) => {
   const existente = db.prepare('SELECT * FROM rebanho_nascimentos WHERE id = ?').get(req.params.id);
   if (!existente) return res.status(404).json({ erro: 'nascimento não encontrado' });
+  if (recusarSeDeParicao(res, existente)) return;
 
   executar(res, () => {
     lerCategoriaNascimento(existente.especie, req.body.categoria);
@@ -376,6 +317,7 @@ router.put('/nascimento/:id', (req, res) => {
 router.delete('/nascimento/:id', (req, res) => {
   const nascimento = db.prepare('SELECT * FROM rebanho_nascimentos WHERE id = ?').get(req.params.id);
   if (!nascimento) return res.status(404).json({ erro: 'nascimento não encontrado' });
+  if (recusarSeDeParicao(res, nascimento)) return;
 
   db.transaction(() => {
     reverterNascimento(nascimento);
@@ -389,33 +331,6 @@ router.delete('/nascimento/:id', (req, res) => {
 });
 
 // ---------- Óbitos ----------
-//
-// O óbito reduz a categoria no mês em que ocorreu e desce para os meses seguintes.
-// Ele NÃO cancela transições de maturação já agendadas (o sistema não rastreia
-// animal a animal), então um óbito antes de uma transição futura continua
-// "evoluindo" a quantidade original. Quando isso deixa algum mês com saldo negativo,
-// a resposta traz `avisos` (não bloqueia); ajuste a transição (PUT /transicao/:id).
-// Já o saldo do próprio mês do óbito é validado: óbitos > animais existentes dá 400.
-
-function aplicarObito(obito) {
-  const [ano, mes] = obito.data.split('-').map(Number);
-  aplicarAjuste(obito.especie, obito.categoria, ano, mes, 'obitos', obito.quantidade);
-
-  const { total } = db
-    .prepare('SELECT total FROM rebanho_snapshots WHERE especie=? AND categoria=? AND ano=? AND mes=?')
-    .get(obito.especie, obito.categoria, ano, mes);
-  if (total < 0) {
-    throw new ErroNegocio(
-      `saldo insuficiente de ${obito.categoria} em ${String(mes).padStart(2, '0')}/${ano} (disponível: ${total + obito.quantidade})`
-    );
-  }
-}
-
-function reverterObito(obito) {
-  const [ano, mes] = obito.data.split('-').map(Number);
-  aplicarAjuste(obito.especie, obito.categoria, ano, mes, 'obitos', -obito.quantidade);
-}
-
 router.post('/obito', (req, res) => {
   executar(res, () => {
     const especie = lerEspecie(req.body);
@@ -437,6 +352,7 @@ router.post('/obito', (req, res) => {
 router.put('/obito/:id', (req, res) => {
   const existente = db.prepare('SELECT * FROM rebanho_obitos WHERE id = ?').get(req.params.id);
   if (!existente) return res.status(404).json({ erro: 'óbito não encontrado' });
+  if (recusarSeDeParicao(res, existente)) return;
 
   executar(res, () => {
     lerCategoriaRebanho(existente.especie, req.body.categoria);
@@ -463,6 +379,7 @@ router.put('/obito/:id', (req, res) => {
 router.delete('/obito/:id', (req, res) => {
   const obito = db.prepare('SELECT * FROM rebanho_obitos WHERE id = ?').get(req.params.id);
   if (!obito) return res.status(404).json({ erro: 'óbito não encontrado' });
+  if (recusarSeDeParicao(res, obito)) return;
 
   db.transaction(() => {
     reverterObito(obito);
@@ -553,6 +470,14 @@ router.get('/historico', validarEspecie, (req, res) => {
 
   const eventos = [];
 
+  // Nascimentos/óbitos gerados por uma parição vêm com paricao_id e a data dela
+  // (a tela os mostra somente leitura, remetendo à aba Parições).
+  const dataDaParicao = new Map(db.prepare('SELECT id, data FROM rebanho_paricoes').all().map((p) => [p.id, p.data]));
+  const origemParicao = (registro) => ({
+    paricao_id: registro.paricao_id,
+    paricao_data: registro.paricao_id ? dataDaParicao.get(registro.paricao_id) : null,
+  });
+
   if (incluir('nascimento')) {
     for (const n of listarDiarios('rebanho_nascimentos')) {
       eventos.push({
@@ -562,6 +487,7 @@ router.get('/historico', validarEspecie, (req, res) => {
         quantidade: n.quantidade,
         observacoes: n.observacoes,
         id: n.id,
+        ...origemParicao(n),
       });
     }
   }
@@ -575,6 +501,7 @@ router.get('/historico', validarEspecie, (req, res) => {
         quantidade: o.quantidade,
         observacoes: o.observacoes,
         id: o.id,
+        ...origemParicao(o),
       });
     }
   }

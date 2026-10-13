@@ -92,6 +92,7 @@ meses seguintes** (`rebanho-core.js`).
 | Nascimento | tela Rebanho | `nascimentos` do mês + gera transições de maturação (`rebanho_transicoes`) nos meses futuros |
 | Transição | gerada pelo nascimento; editável (quantidade e mês) | `evolução` sai da categoria de origem e entra na de destino |
 | Óbito | tela Rebanho | `obitos` do mês; mais óbitos que animais no mês dá erro 400 |
+| Parição (só ovinos) | tela Rebanho, aba **Parições** | nascimentos de Borrego/Borrega + óbito de Ovelha (ver abaixo) |
 | Venda de animais | Lançamentos (categoria + espécie) | `vendas` do mês |
 | Compra de animais | Lançamentos (categoria + espécie) | `compras` do mês |
 
@@ -109,6 +110,37 @@ meses seguintes** (`rebanho-core.js`).
 o saldo de Reprodutor vem das planilhas importadas e só muda por óbito, venda ou compra. Falta decidir como registrar a
 promoção (provavelmente um evento próprio na tela de Rebanho).
 
+**Parição (ovinos)** — o resumo mensal da planilha ("PARIÇÃO DEZEMBRO") vira um evento, listado na aba
+**Parições** (`rebanho_paricoes`, uma linha por parição, com Editar/Excluir). O usuário preenche os números;
+só três mexem no rebanho, os demais são o registro do evento:
+
+| Campo | Efeito |
+|---|---|
+| Borregos vivos / Borregas vivas | viram **nascimentos** de Borrego/Borrega na data da parição (e a cadeia de maturação) |
+| Ovelhas mortas | viram **óbito** de Ovelha (ovelhas às vezes morrem no parto) |
+| Ovelhas, partos duplos, abortos, natimortos, mortes, aleijados | só registro |
+| Total de mortos | = natimortos + mortes + **aleijados** (como nas planilhas reais) |
+| Crias | = borregos vivos + borregas vivas + total de mortos |
+
+- Esses nascimentos/óbito ("filhos") ficam em `rebanho_nascimentos`/`rebanho_obitos` com `paricao_id`, aparecem no
+  Histórico **somente leitura** ("gerado pela parição de…") e só mudam pela parição (400 no PUT/DELETE direto).
+  Morte de borrego *depois* do nascimento se registra como Óbito, não editando a parição.
+- **Editar a parição reconcilia por filho**: só refaz o que mudou (data/mês, borregos, borregas, ovelhas mortas).
+  Mudar só estatísticas, observações ou o dia não toca no snapshot nem nas transições (ajustes manuais nelas
+  sobrevivem). Mudar o mês ou a quantidade de um filho regera as transições **dele**.
+- **"Lançar no rebanho" (`aplicar_no_rebanho`, padrão sim)**: desmarcado, grava só as estatísticas. Existe porque
+  **as parições antigas já estão nas planilhas importadas** (os nascimentos do snapshot são os borregos/borregas
+  vivos das notas): lançá-las de novo contaria em dobro, e o erro se propaga a todos os meses seguintes. A tela
+  avisa e desmarca sozinha quando o mês já tem nascimentos; o servidor também avisa (nascimentos do snapshot do
+  mês além dos registrados no sistema, só para Borrego/Borrega).
+- Ovelha morta acima do saldo do mês é erro 400 com rollback total (a mensagem cita a parição e o remédio:
+  desmarcar "Lançar no rebanho"). Crias/total de mortos ausentes são derivados no servidor; números que não
+  fecham entre si (e ovelhas mortas ou partos duplos acima das ovelhas) viram **avisos**, não erro.
+- A data é uma só: o **mês** define nascimentos e transições. Parição que atravessou dois meses: use o mês com
+  mais nascimentos ou registre duas parições (estatísticas só em uma). Aceita até 12 meses à frente e, se for
+  lançada no rebanho, não anterior ao primeiro mês com registro de ovinos.
+- Aleijados contam como mortos e **não** entram no rebanho. A ovelha morta é sempre da categoria Ovelha.
+
 Regras importantes:
 - **Editar/excluir refaz o efeito**: cada evento é revertido e reaplicado em transação. Para venda/compra,
   `rebanho_lancamentos` guarda o que foi aplicado, para reverter exatamente isso.
@@ -118,6 +150,11 @@ Regras importantes:
   exibe. Causa típica: óbito de animal que ainda tem transição futura agendada — ajuste a transição.
 - O óbito **não cancela** transições já agendadas (não há rastreio animal a animal).
 - Datas de eventos do rebanho aceitam anos entre 2000 e 2100.
+- **Reimportar planilhas** (`POST /api/rebanho/snapshot`, usado por `import-rebanho-excel.js`) **substitui** a
+  linha do mês: apaga o efeito que eventos do sistema (nascimento, óbito, parição, venda/compra) tinham nela. Para
+  meses com eventos registrados, exclua os eventos antes ou não reimporte.
+- `GET /serie` e `GET /mes`: categoria sem linha num mês que tem dados repete o último total conhecido (um
+  nascimento só cria linhas para as categorias da sua cadeia nos meses seguintes; sem isso o total "despencava").
 
 ---
 

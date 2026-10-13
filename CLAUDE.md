@@ -7,7 +7,7 @@
 - Stack: Node 22 (CommonJS) + Express 4 + SQLite (better-sqlite3) no backend; HTML/CSS/JS puro no frontend (sem bundler; Chart.js em `frontend/js/vendor/`). Interface e textos em português.
 - Comandos (o `package.json` fica em `backend/`, não na raiz):
   - rodar: `npm --prefix backend start` · dev com reload: `npm --prefix backend run dev` (http://localhost:3000)
-  - testes: `npm --prefix backend test` (`node --test`, arquivos em `backend/test/`; hoje só `lancamentos.test.js`). Lint/build: **não existem**.
+  - testes: `npm --prefix backend test` (`node --test`, arquivos `*.test.js` em `backend/test/`: lancamentos, rebanho, parição, migração, série). Lint/build: **não existem**.
   - importar planilhas de `excel/`: `node backend/scripts/import-*.js` (também `classificar-*.js`)
   - imagem: `docker build .` · deploy: `fly deploy` (passo a passo em `DEPLOY.md`)
 - Estrutura:
