@@ -122,13 +122,13 @@ async function carregarTabela() {
           <td>${formatoData(l.data)}</td>
           <td>${badgeTipo}</td>
           <td>${l.categoria_nome}</td>
-          <td>${l.subcategoria || ''}</td>
+          <td>${l.subcategoria || ''}${l.animal_especie ? ' <span class="badge badge-transicao" title="Este lançamento altera o rebanho">rebanho</span>' : ''}</td>
           <td class="col-valor">${l.quantidade ?? ''}</td>
           <td>${l.descricao || ''}</td>
           <td class="col-valor ${valorClasse}">${sinal} ${formatoMoeda.format(l.valor)}</td>
           <td class="col-acoes">
             <button class="link-acao" data-editar="${l.id}">Editar</button>
-            <button class="link-acao excluir" data-excluir="${l.id}">Excluir</button>
+            <button class="link-acao excluir" data-excluir="${l.id}" data-rebanho="${l.animal_especie ? 1 : 0}">Excluir</button>
           </td>
         </tr>`;
     })
@@ -139,10 +139,12 @@ async function atualizarTudo() {
   await Promise.all([carregarResumo(), carregarTabela(), carregarSubcategorias()]);
 }
 
-async function excluirLancamento(id) {
-  if (!confirm('Tem certeza que deseja excluir este lançamento?')) return;
-  await api.lancamentos.excluir(id);
+async function excluirLancamento(id, afetaRebanho) {
+  const aviso = afetaRebanho ? '\n\nO ajuste que ele fez no rebanho também será desfeito.' : '';
+  if (!confirm(`Tem certeza que deseja excluir este lançamento?${aviso}`)) return;
+  const resposta = await api.lancamentos.excluir(id);
   await atualizarTudo();
+  if (resposta?.avisos?.length) alert(`Excluído, mas atenção:\n\n${resposta.avisos.join('\n')}`);
 }
 
 async function editarLancamento(id) {
@@ -171,7 +173,7 @@ function ligarEventos() {
     const idEditar = evento.target.dataset.editar;
     const idExcluir = evento.target.dataset.excluir;
     if (idEditar) editarLancamento(idEditar);
-    if (idExcluir) excluirLancamento(idExcluir);
+    if (idExcluir) excluirLancamento(idExcluir, evento.target.dataset.rebanho === '1');
   });
 
   [el.filtroDataInicio, el.filtroDataFim, el.filtroTipo, el.filtroCategoria, el.filtroSubcategoria].forEach(

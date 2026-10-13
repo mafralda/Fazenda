@@ -177,6 +177,7 @@ function preencherTabelaMes(dados) {
           <td class="col-valor">${c.saldo_anterior}</td>
           <td class="col-valor">${c.obitos}</td>
           <td class="col-valor">${c.vendas}</td>
+          <td class="col-valor">${c.compras}</td>
           <td class="col-valor">${c.nascimentos}</td>
           <td class="col-valor"><strong>${c.total}</strong></td>
         </tr>`
@@ -189,6 +190,7 @@ function preencherTabelaMes(dados) {
       <td class="col-valor"><strong>${dados.totais.saldo_anterior}</strong></td>
       <td class="col-valor"><strong>${dados.totais.obitos}</strong></td>
       <td class="col-valor"><strong>${dados.totais.vendas}</strong></td>
+      <td class="col-valor"><strong>${dados.totais.compras}</strong></td>
       <td class="col-valor"><strong>${dados.totais.nascimentos}</strong></td>
       <td class="col-valor"><strong>${dados.totais.total}</strong></td>
     </tr>`;

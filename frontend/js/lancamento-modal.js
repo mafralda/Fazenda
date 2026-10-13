@@ -27,20 +27,37 @@ const NovoLancamentoModal = {
           <select id="campo-categoria" required></select>
         </label>
 
+        <label id="bloco-animal-especie" hidden>
+          Animais
+          <select id="campo-animal-especie">
+            <option value="">Selecione…</option>
+            <option value="bovino">Bovino (altera o rebanho)</option>
+            <option value="ovino">Ovino (altera o rebanho)</option>
+            <option value="nenhum">Outro animal (não altera o rebanho)</option>
+          </select>
+        </label>
+
+        <label id="bloco-animal-categoria" hidden>
+          Categoria do animal
+          <select id="campo-animal-categoria"></select>
+        </label>
+
+        <p id="aviso-rebanho" class="nota-rebanho" hidden></p>
+
         <label>
           Descrição
           <input type="text" id="campo-descricao" placeholder="Ex: compra de ração para o rebanho" />
         </label>
 
         <div class="campo-linha">
-          <label>
+          <label id="bloco-subcategoria">
             Subcategoria <span class="opcional">(opcional)</span>
             <input type="text" id="campo-subcategoria" list="lista-subcategorias" placeholder="Ex: Ovelha, Borrego, Carneiro..." />
             <datalist id="lista-subcategorias"></datalist>
           </label>
 
           <label>
-            Quantidade <span class="opcional">(opcional)</span>
+            Quantidade <span id="quantidade-opcional" class="opcional">(opcional)</span>
             <input type="number" id="campo-quantidade" step="0.01" min="0" placeholder="Ex: 9" />
           </label>
         </div>
@@ -92,9 +109,86 @@ const NovoLancamentoModal = {
     campoData: document.getElementById('campo-data'),
     campoFormaPagamento: document.getElementById('campo-forma-pagamento'),
     campoObservacoes: document.getElementById('campo-observacoes'),
+
+    blocoAnimalEspecie: document.getElementById('bloco-animal-especie'),
+    campoAnimalEspecie: document.getElementById('campo-animal-especie'),
+    blocoAnimalCategoria: document.getElementById('bloco-animal-categoria'),
+    campoAnimalCategoria: document.getElementById('campo-animal-categoria'),
+    blocoSubcategoria: document.getElementById('bloco-subcategoria'),
+    quantidadeOpcional: document.getElementById('quantidade-opcional'),
+    avisoRebanho: document.getElementById('aviso-rebanho'),
   };
 
+  // Estas categorias alteram o rebanho quando se informa a espécie do animal.
+  const MOVIMENTOS_REBANHO = {
+    'Venda de animais': 'venda',
+    'Compra de animais': 'compra',
+  };
+  const ESPECIES_DO_REBANHO = ['bovino', 'ovino'];
+
   let categoriasCache = [];
+  const categoriasAnimalCache = {};
+
+  // AAAA-MM-DD no fuso local: toISOString usa UTC e, à noite, viraria o dia — e agora o
+  // mês da data decide em qual mês do rebanho a venda/compra é lançada.
+  function hojeISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function movimentoSelecionado() {
+    const categoria = categoriasCache.find((c) => String(c.id) === el.campoCategoria.value);
+    return categoria ? MOVIMENTOS_REBANHO[categoria.nome] ?? null : null;
+  }
+
+  async function carregarCategoriasAnimal(especie) {
+    if (!categoriasAnimalCache[especie]) {
+      categoriasAnimalCache[especie] = await api.rebanho.categorias(especie);
+    }
+    // o usuário pode ter trocado de espécie enquanto a lista carregava: não sobrescreve
+    if (el.campoAnimalEspecie.value !== especie) return;
+    el.campoAnimalCategoria.innerHTML = categoriasAnimalCache[especie]
+      .map((c) => `<option value="${c}">${c}</option>`)
+      .join('');
+  }
+
+  // Mostra/oculta os campos de rebanho conforme a categoria e a espécie escolhidas.
+  function atualizarBlocoRebanho() {
+    const movimento = movimentoSelecionado();
+    const afetaRebanho = Boolean(movimento) && ESPECIES_DO_REBANHO.includes(el.campoAnimalEspecie.value);
+
+    el.blocoAnimalEspecie.hidden = !movimento;
+    el.campoAnimalEspecie.required = Boolean(movimento);
+
+    el.blocoAnimalCategoria.hidden = !afetaRebanho;
+    el.campoAnimalCategoria.required = afetaRebanho;
+    el.blocoSubcategoria.hidden = afetaRebanho; // a categoria do animal vira a subcategoria
+
+    // mexer no rebanho exige quantidade inteira
+    el.campoQuantidade.required = afetaRebanho;
+    el.campoQuantidade.step = afetaRebanho ? '1' : '0.01';
+    el.campoQuantidade.min = afetaRebanho ? '1' : '0';
+    el.quantidadeOpcional.hidden = afetaRebanho;
+
+    el.avisoRebanho.hidden = !afetaRebanho;
+    if (afetaRebanho) {
+      el.avisoRebanho.textContent =
+        movimento === 'venda'
+          ? 'Esta venda será descontada do rebanho no mês da data informada.'
+          : 'Esta compra será somada ao rebanho no mês da data informada.';
+    }
+  }
+
+  async function aoMudarEspecieDoAnimal() {
+    const especie = el.campoAnimalEspecie.value;
+    if (ESPECIES_DO_REBANHO.includes(especie)) await carregarCategoriasAnimal(especie);
+    atualizarBlocoRebanho();
+  }
+
+  function aoMudarTipo() {
+    preencherCategoriasDoFormulario();
+    atualizarBlocoRebanho();
+  }
 
   async function carregarCategorias() {
     categoriasCache = await api.categorias.listar();
@@ -143,12 +237,22 @@ const NovoLancamentoModal = {
       el.campoData.value = lancamento.data;
       el.campoFormaPagamento.value = lancamento.forma_pagamento || '';
       el.campoObservacoes.value = lancamento.observacoes || '';
+
+      if (lancamento.animal_especie) {
+        el.campoAnimalEspecie.value = lancamento.animal_especie;
+        await carregarCategoriasAnimal(lancamento.animal_especie);
+        el.campoAnimalCategoria.value = lancamento.subcategoria;
+      } else if (movimentoSelecionado()) {
+        // venda/compra antiga (ou de outro animal): continua sem mexer no rebanho
+        el.campoAnimalEspecie.value = 'nenhum';
+      }
     } else {
       el.modalTitulo.textContent = 'Novo lançamento';
       el.campoId.value = '';
-      el.campoData.value = new Date().toISOString().slice(0, 10);
+      el.campoData.value = hojeISO();
     }
 
+    atualizarBlocoRebanho();
     el.modal.showModal();
   }
 
@@ -159,30 +263,34 @@ const NovoLancamentoModal = {
   async function salvar(evento) {
     evento.preventDefault();
 
+    const afetaRebanho =
+      Boolean(movimentoSelecionado()) && ESPECIES_DO_REBANHO.includes(el.campoAnimalEspecie.value);
+
     const dados = {
       tipo: el.campoTipo.value,
       categoria_id: Number(el.campoCategoria.value),
       descricao: el.campoDescricao.value,
-      subcategoria: el.campoSubcategoria.value,
+      subcategoria: afetaRebanho ? el.campoAnimalCategoria.value : el.campoSubcategoria.value,
       quantidade: el.campoQuantidade.value ? Number(el.campoQuantidade.value) : null,
       valor: Number(el.campoValor.value),
       data: el.campoData.value,
       forma_pagamento: el.campoFormaPagamento.value,
       observacoes: el.campoObservacoes.value,
+      // null (e não ausente) desfaz o ajuste no rebanho de um lançamento já vinculado
+      animal_especie: afetaRebanho ? el.campoAnimalEspecie.value : null,
     };
 
     const id = el.campoId.value;
 
     try {
-      if (id) {
-        await api.lancamentos.atualizar(id, dados);
-      } else {
-        await api.lancamentos.criar(dados);
-      }
+      const resposta = id
+        ? await api.lancamentos.atualizar(id, dados)
+        : await api.lancamentos.criar(dados);
       fechar();
       if (typeof NovoLancamentoModal.aoSalvar === 'function') {
         await NovoLancamentoModal.aoSalvar();
       }
+      if (resposta?.avisos?.length) alert(`Salvo, mas atenção:\n\n${resposta.avisos.join('\n')}`);
     } catch (erro) {
       alert(erro.message);
     }
@@ -190,7 +298,9 @@ const NovoLancamentoModal = {
 
   el.btnCancelar.addEventListener('click', fechar);
   el.form.addEventListener('submit', salvar);
-  el.campoTipo.addEventListener('change', preencherCategoriasDoFormulario);
+  el.campoTipo.addEventListener('change', aoMudarTipo);
+  el.campoCategoria.addEventListener('change', atualizarBlocoRebanho);
+  el.campoAnimalEspecie.addEventListener('change', aoMudarEspecieDoAnimal);
 
   NovoLancamentoModal.abrir = abrir;
   NovoLancamentoModal.fechar = fechar;

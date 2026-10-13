@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS rebanho_snapshots (
   evolucao INTEGER NOT NULL DEFAULT 0,
   obitos INTEGER NOT NULL DEFAULT 0,
   vendas INTEGER NOT NULL DEFAULT 0,
+  compras INTEGER NOT NULL DEFAULT 0,
   subtotal INTEGER NOT NULL DEFAULT 0,
   nascimentos INTEGER NOT NULL DEFAULT 0,
   total INTEGER NOT NULL DEFAULT 0,
@@ -77,6 +78,19 @@ CREATE TABLE IF NOT EXISTS rebanho_obitos (
   observacoes TEXT,
   criado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Vínculo entre um lançamento de venda/compra de animais e o ajuste que ele fez
+-- no rebanho. Guarda o que foi aplicado (e não só o estado atual do lançamento)
+-- para editar/excluir o lançamento desfazerem exatamente aquele ajuste.
+-- Lançamentos antigos não têm vínculo: as planilhas de rebanho já os contêm.
+CREATE TABLE IF NOT EXISTS rebanho_lancamentos (
+  lancamento_id INTEGER PRIMARY KEY REFERENCES lancamentos(id),
+  especie TEXT NOT NULL CHECK (especie IN ('bovino', 'ovino')),
+  categoria TEXT NOT NULL,
+  quantidade INTEGER NOT NULL,
+  movimento TEXT NOT NULL CHECK (movimento IN ('venda', 'compra')),
+  data TEXT NOT NULL
+);
 `);
 
 const count = db.prepare('SELECT COUNT(*) as total FROM categorias').get().total;
@@ -108,8 +122,12 @@ if (count === 0) {
 }
 
 // Categorias que precisam existir em qualquer banco, inclusive nos que já existiam
-// (as categorias iniciais acima só são criadas em banco vazio).
-const categoriasGarantidas = [['Sal Proteinado', 'despesa']];
+// (as categorias iniciais acima só são criadas em banco vazio). "Compra de animais"
+// também soma ao rebanho (ver routes/lancamentos.js).
+const categoriasGarantidas = [
+  ['Compra de animais', 'despesa'],
+  ['Sal Proteinado', 'despesa'],
+];
 
 for (const [nome, tipo] of categoriasGarantidas) {
   const existe = db.prepare('SELECT 1 FROM categorias WHERE nome = ? AND tipo = ?').get(nome, tipo);
@@ -117,6 +135,13 @@ for (const [nome, tipo] of categoriasGarantidas) {
     db.prepare('INSERT INTO categorias (nome, tipo) VALUES (?, ?)').run(nome, tipo);
     console.log(`Categoria "${nome}" criada.`);
   }
+}
+
+// Coluna de compras no snapshot do rebanho, para bancos criados antes dela existir.
+const colunasSnapshots = db.prepare('PRAGMA table_info(rebanho_snapshots)').all();
+if (!colunasSnapshots.some((c) => c.name === 'compras')) {
+  db.exec('ALTER TABLE rebanho_snapshots ADD COLUMN compras INTEGER NOT NULL DEFAULT 0');
+  console.log('Coluna compras adicionada em rebanho_snapshots.');
 }
 
 // Remove os campos de CAPEX/OPEX de bancos criados antes dessa mudança.

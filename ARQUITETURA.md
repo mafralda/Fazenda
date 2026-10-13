@@ -27,7 +27,7 @@ facilitam a visão geral da saúde financeira da operação.
 ### 3.1 Receitas
 | Categoria | Observação |
 |---|---|
-| Venda de animais | Categoria inicial. Lista de categorias deve ser extensível pelo usuário. |
+| Venda de animais | Categoria inicial. Lista de categorias deve ser extensível pelo usuário. Desconta do rebanho quando a espécie do animal é informada (ver 4.3). |
 | Outras receitas | Categoria genérica para receitas não previstas. |
 
 ### 3.2 Despesas
@@ -42,8 +42,12 @@ facilitam a visão geral da saúde financeira da operação.
 | Medicamentos (veterinários) | |
 | Maquinário / Equipamentos (compra) | |
 | Benfeitorias / Construções | |
+| Compra de animais | Soma ao rebanho quando a espécie do animal é informada (ver 4.3). |
 | Sal Proteinado | |
 | Outras despesas | Categoria genérica. |
+
+"Compra de animais" e "Sal Proteinado" são garantidas em qualquer banco ao subir o servidor
+(`db/schema.js`), inclusive nos que já existiam.
 
 As categorias serão **configuráveis** (o usuário pode adicionar novas categorias de
 receita/despesa além das listadas acima).
@@ -59,8 +63,9 @@ receita/despesa além das listadas acima).
 | tipo | enum: `receita` \| `despesa` | Define se é entrada ou saída |
 | categoria_id | FK → Categoria | Categoria do lançamento |
 | descricao | string | Texto livre descrevendo o lançamento |
-| subcategoria | string (opcional) | Etiqueta livre — ex.: tipo de animal numa venda |
-| quantidade | number (opcional) | Ex.: quantidade de animais vendidos |
+| subcategoria | string (opcional) | Etiqueta livre — ex.: tipo de animal numa venda. Se o lançamento altera o rebanho, é a categoria do animal (ex.: "Ovelha"). |
+| quantidade | number (opcional) | Ex.: quantidade de animais vendidos. Inteira e obrigatória se o lançamento altera o rebanho. |
+| animal_especie | `bovino` \| `ovino` (opcional, só na API) | Em "Venda de animais"/"Compra de animais": liga o lançamento ao rebanho. Vive na tabela `rebanho_lancamentos`, não na `lancamentos`. |
 | valor | decimal | Valor em R$ |
 | data | date | Data do lançamento/competência |
 | forma_pagamento | string (opcional) | Ex.: dinheiro, PIX, boleto, cartão |
@@ -74,6 +79,31 @@ receita/despesa além das listadas acima).
 | nome | string | Nome da categoria |
 | tipo | enum: `receita` \| `despesa` | A qual grupo pertence |
 | ativo | boolean | Permite "desativar" categorias sem excluir histórico |
+
+### 4.3 Rebanho (bovino e ovino)
+O rebanho é guardado como um **snapshot mensal por categoria de animal** (`rebanho_snapshots`:
+saldo anterior, evolução, óbitos, vendas, compras, subtotal, nascimentos, total), vindo das planilhas
+importadas e atualizado pelos eventos abaixo. `subtotal = saldo_anterior + evolução − óbitos − vendas + compras`
+e `total = subtotal + nascimentos`. Todo ajuste cai no mês da data do evento e **propaga o delta para os
+meses seguintes** (`rebanho-core.js`).
+
+| Evento | Onde se registra | Efeito |
+|---|---|---|
+| Nascimento | tela Rebanho | `nascimentos` do mês + gera transições de maturação (`rebanho_transicoes`) nos meses futuros |
+| Transição | gerada pelo nascimento; editável (quantidade e mês) | `evolução` sai da categoria de origem e entra na de destino |
+| Óbito | tela Rebanho | `obitos` do mês; mais óbitos que animais no mês dá erro 400 |
+| Venda de animais | Lançamentos (categoria + espécie) | `vendas` do mês |
+| Compra de animais | Lançamentos (categoria + espécie) | `compras` do mês |
+
+Regras importantes:
+- **Editar/excluir refaz o efeito**: cada evento é revertido e reaplicado em transação. Para venda/compra,
+  `rebanho_lancamentos` guarda o que foi aplicado, para reverter exatamente isso.
+- **Lançamentos antigos não mexem no rebanho** (as planilhas já contêm essas vendas). Só têm efeito os
+  que informam `animal_especie`. No PUT, omitir `animal_especie` mantém o vínculo; `null` desfaz.
+- **Saldo negativo não bloqueia** (exceto óbito além do saldo do mês): a resposta traz `avisos` e a tela
+  exibe. Causa típica: óbito de animal que ainda tem transição futura agendada — ajuste a transição.
+- O óbito **não cancela** transições já agendadas (não há rastreio animal a animal).
+- Datas de eventos do rebanho aceitam anos entre 2000 e 2100.
 
 ---
 

@@ -1,5 +1,15 @@
 const express = require('express');
 const db = require('../db');
+const {
+  ORDEM_CATEGORIAS,
+  ErroNegocio,
+  executar,
+  dataISOValida,
+  inteiroPositivo,
+  exigirAnoPlausivel,
+  aplicarAjuste,
+  avisosDeSaldo,
+} = require('../rebanho-core');
 
 const router = express.Router();
 
@@ -7,11 +17,6 @@ const NOMES_MES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
-
-const ORDEM_CATEGORIAS = {
-  bovino: ['Bezerro', 'Bezerra', 'Garrote', 'Garrota', 'Novilho', 'Novilha', 'Vaca', 'Touro'],
-  ovino: ['Borrego', 'Borrega', 'Marrão', 'Marrã', 'Ovelha', 'Reprodutor'],
-};
 
 // Cadeia de maturação por espécie/categoria de nascimento: quantos meses após o
 // nascimento cada transição acontece, e para qual categoria o animal vai.
@@ -54,143 +59,6 @@ function somarMeses(dataISO, quantidadeMeses) {
   return { ano: Math.floor(totalMeses / 12), mes: (totalMeses % 12) + 1 };
 }
 
-// Garante que existe uma linha de snapshot pra (especie,categoria,ano,mes),
-// preenchendo com "carry-forward" (sem mudança) qualquer mês entre o último
-// registro existente e o mês pedido.
-function garantirLinha(especie, categoria, ano, mes) {
-  const existente = db
-    .prepare('SELECT * FROM rebanho_snapshots WHERE especie=? AND categoria=? AND ano=? AND mes=?')
-    .get(especie, categoria, ano, mes);
-  if (existente) return existente;
-
-  const anterior = db
-    .prepare(
-      `SELECT * FROM rebanho_snapshots
-       WHERE especie=? AND categoria=? AND (ano < ? OR (ano = ? AND mes < ?))
-       ORDER BY ano DESC, mes DESC LIMIT 1`
-    )
-    .get(especie, categoria, ano, ano, mes);
-
-  let anoIter;
-  let mesIter;
-  let totalCorrente;
-
-  if (anterior) {
-    anoIter = anterior.ano;
-    mesIter = anterior.mes;
-    totalCorrente = anterior.total;
-  } else {
-    anoIter = mes === 1 ? ano - 1 : ano;
-    mesIter = mes === 1 ? 12 : mes - 1;
-    totalCorrente = 0;
-  }
-
-  const inserir = db.prepare(
-    `INSERT INTO rebanho_snapshots
-      (especie, categoria, ano, mes, saldo_anterior, evolucao, obitos, vendas, subtotal, nascimentos, total)
-     VALUES (?, ?, ?, ?, ?, 0, 0, 0, ?, 0, ?)`
-  );
-
-  while (anoIter < ano || (anoIter === ano && mesIter < mes)) {
-    mesIter++;
-    if (mesIter > 12) {
-      mesIter = 1;
-      anoIter++;
-    }
-    const jaExiste = db
-      .prepare('SELECT total FROM rebanho_snapshots WHERE especie=? AND categoria=? AND ano=? AND mes=?')
-      .get(especie, categoria, anoIter, mesIter);
-    if (jaExiste) {
-      totalCorrente = jaExiste.total;
-    } else {
-      inserir.run(especie, categoria, anoIter, mesIter, totalCorrente, totalCorrente, totalCorrente);
-    }
-  }
-
-  return db
-    .prepare('SELECT * FROM rebanho_snapshots WHERE especie=? AND categoria=? AND ano=? AND mes=?')
-    .get(especie, categoria, ano, mes);
-}
-
-// Propaga uma variação de total pros meses SEGUINTES já existentes (o saldo
-// anterior de cada um desliza pela mesma quantidade). Usar delta (em vez de
-// recalcular por fórmula) preserva qualquer peculiaridade que já existisse nos
-// dados importados da planilha original (ex.: subtotal que não bate com
-// saldo_anterior-evolução por causa de ajuste manual do dono do rebanho).
-function propagarDelta(especie, categoria, anoInicio, mesInicio, delta) {
-  if (!delta) return;
-  db.prepare(
-    `UPDATE rebanho_snapshots SET saldo_anterior = saldo_anterior + ?, subtotal = subtotal + ?, total = total + ?
-     WHERE especie=? AND categoria=? AND (ano > ? OR (ano = ? AND mes > ?))`
-  ).run(delta, delta, delta, especie, categoria, anoInicio, anoInicio, mesInicio);
-}
-
-const CAMPOS_AJUSTAVEIS = new Set(['nascimentos', 'evolucao', 'obitos']);
-
-// nascimentos entra só no total (subtotal é "antes dos nascimentos" por
-// definição da planilha); evolução entra no subtotal e por consequência no total;
-// óbitos é guardado positivo (como na planilha) e SAI do subtotal e do total.
-function aplicarAjuste(especie, categoria, ano, mes, campo, delta) {
-  if (!CAMPOS_AJUSTAVEIS.has(campo)) throw new Error(`Campo não ajustável: ${campo}`);
-  garantirLinha(especie, categoria, ano, mes);
-
-  // efeito: variação resultante no total (e nos meses seguintes)
-  let efeito = delta;
-  if (campo === 'nascimentos') {
-    db.prepare(
-      `UPDATE rebanho_snapshots SET nascimentos = nascimentos + ?, total = total + ?
-       WHERE especie=? AND categoria=? AND ano=? AND mes=?`
-    ).run(delta, delta, especie, categoria, ano, mes);
-  } else if (campo === 'obitos') {
-    efeito = -delta;
-    db.prepare(
-      `UPDATE rebanho_snapshots SET obitos = obitos + ?, subtotal = subtotal - ?, total = total - ?
-       WHERE especie=? AND categoria=? AND ano=? AND mes=?`
-    ).run(delta, delta, delta, especie, categoria, ano, mes);
-  } else {
-    db.prepare(
-      `UPDATE rebanho_snapshots SET evolucao = evolucao + ?, subtotal = subtotal + ?, total = total + ?
-       WHERE especie=? AND categoria=? AND ano=? AND mes=?`
-    ).run(delta, delta, delta, especie, categoria, ano, mes);
-  }
-
-  propagarDelta(especie, categoria, ano, mes, efeito);
-}
-
-// Erro de regra de negócio/validação: vira 400 e desfaz a transação em andamento.
-class ErroNegocio extends Error {}
-
-function executar(res, fn) {
-  try {
-    return fn();
-  } catch (erro) {
-    if (erro instanceof ErroNegocio) return res.status(400).json({ erro: erro.message });
-    throw erro;
-  }
-}
-
-function dataISOValida(texto) {
-  if (typeof texto !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
-  const [ano, mes, dia] = texto.split('-').map(Number);
-  const d = new Date(Date.UTC(ano, mes - 1, dia));
-  return d.getUTCFullYear() === ano && d.getUTCMonth() === mes - 1 && d.getUTCDate() === dia;
-}
-
-// garantirLinha preenche mês a mês até a data pedida: sem limite, um ano digitado
-// errado (ex.: 9999) geraria dezenas de milhares de linhas.
-const ANO_MIN = 2000;
-const ANO_MAX = 2100;
-
-// Aceita número ou texto numérico (true, [3] etc. não valem). Devolve null se inválido.
-function inteiroPositivo(valor) {
-  const numero = typeof valor === 'string' && valor.trim() !== '' ? Number(valor) : valor;
-  return typeof numero === 'number' && Number.isInteger(numero) && numero > 0 ? numero : null;
-}
-
-function exigirAnoPlausivel(ano, campo) {
-  if (ano < ANO_MIN || ano > ANO_MAX) throw new ErroNegocio(`${campo} deve estar entre ${ANO_MIN} e ${ANO_MAX}`);
-}
-
 function lerQuantidadeEData(corpo) {
   const quantidade = inteiroPositivo(corpo.quantidade);
   if (quantidade === null) {
@@ -205,28 +73,6 @@ function lerQuantidadeEData(corpo) {
 
 function categoriasDaCadeia(especie, categoria) {
   return [categoria, ...CADEIAS_MATURACAO[especie][categoria].map((etapa) => etapa.categoria)];
-}
-
-// Avisos (não bloqueiam) de categorias que ficaram com total negativo a partir do
-// mês mais antigo afetado. Acontece, por exemplo, quando um óbito reduz uma categoria
-// que ainda tem transições agendadas de saída: ajuste essas transições no histórico.
-function avisosDeSaldo(especie, categorias, datas) {
-  const [ano, mes] = datas.map((d) => d.slice(0, 7)).sort()[0].split('-').map(Number);
-  const buscar = db.prepare(
-    `SELECT ano, mes, total FROM rebanho_snapshots
-     WHERE especie=? AND categoria=? AND total < 0 AND (ano > ? OR (ano = ? AND mes >= ?))
-     ORDER BY ano, mes LIMIT 1`
-  );
-  const avisos = [];
-  for (const categoria of new Set(categorias)) {
-    const ruim = buscar.get(especie, categoria, ano, ano, mes);
-    if (ruim) {
-      avisos.push(
-        `${categoria} fica com saldo negativo (${ruim.total}) em ${String(ruim.mes).padStart(2, '0')}/${ruim.ano}: ajuste as transições ou lançamentos desse período.`
-      );
-    }
-  }
-  return avisos;
 }
 
 function lerEspecie(corpo) {
@@ -310,6 +156,7 @@ router.get('/mes', validarEspecie, (req, res) => {
         evolucao: 0,
         obitos: 0,
         vendas: 0,
+        compras: 0,
         subtotal: 0,
         nascimentos: 0,
         total: 0,
@@ -322,12 +169,13 @@ router.get('/mes', validarEspecie, (req, res) => {
       acc.saldo_anterior += l.saldo_anterior;
       acc.obitos += l.obitos;
       acc.vendas += l.vendas;
+      acc.compras += l.compras;
       acc.subtotal += l.subtotal;
       acc.nascimentos += l.nascimentos;
       acc.total += l.total;
       return acc;
     },
-    { saldo_anterior: 0, obitos: 0, vendas: 0, subtotal: 0, nascimentos: 0, total: 0 }
+    { saldo_anterior: 0, obitos: 0, vendas: 0, compras: 0, subtotal: 0, nascimentos: 0, total: 0 }
   );
 
   const nota = db
@@ -356,6 +204,7 @@ router.post('/snapshot', (req, res) => {
     evolucao,
     obitos,
     vendas,
+    compras,
     subtotal,
     nascimentos,
     total,
@@ -370,13 +219,14 @@ router.post('/snapshot', (req, res) => {
 
   db.prepare(
     `INSERT INTO rebanho_snapshots
-      (especie, categoria, ano, mes, saldo_anterior, evolucao, obitos, vendas, subtotal, nascimentos, total)
-     VALUES (@especie, @categoria, @ano, @mes, @saldo_anterior, @evolucao, @obitos, @vendas, @subtotal, @nascimentos, @total)
+      (especie, categoria, ano, mes, saldo_anterior, evolucao, obitos, vendas, compras, subtotal, nascimentos, total)
+     VALUES (@especie, @categoria, @ano, @mes, @saldo_anterior, @evolucao, @obitos, @vendas, @compras, @subtotal, @nascimentos, @total)
      ON CONFLICT(especie, categoria, ano, mes) DO UPDATE SET
        saldo_anterior = excluded.saldo_anterior,
        evolucao = excluded.evolucao,
        obitos = excluded.obitos,
        vendas = excluded.vendas,
+       compras = excluded.compras,
        subtotal = excluded.subtotal,
        nascimentos = excluded.nascimentos,
        total = excluded.total`
@@ -389,6 +239,7 @@ router.post('/snapshot', (req, res) => {
     evolucao: evolucao || 0,
     obitos: obitos || 0,
     vendas: vendas || 0,
+    compras: compras || 0,
     subtotal: subtotal || 0,
     nascimentos: nascimentos || 0,
     total: total || 0,

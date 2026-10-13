@@ -257,6 +257,9 @@ body {
   border-bottom-color: var(--verde);
 }
 
+/* Regras com display próprio (ex.: labels flex nos formulários) sobrepõem o [hidden] do navegador. */
+[hidden] { display: none !important; }
+
 .badge-nascimento { background: #e8f5e9; color: var(--verde-escuro); }
 .badge-transicao { background: #e3f2fd; color: var(--azul); }
 .badge-obito { background: #ffebee; color: var(--vermelho); }
