@@ -113,19 +113,26 @@ router.get('/serie', validarEspecie, (req, res) => {
   const ano = Number(req.query.ano) || new Date().getFullYear();
   const categorias = ORDEM_CATEGORIAS[especie];
 
-  const linhas = db
-    .prepare('SELECT * FROM rebanho_snapshots WHERE especie = ? AND ano = ?')
+  // Uma categoria sem linha num mês que tem dados (ex.: só Borrego e Marrão ganharam linha
+  // por causa de um nascimento) mantém o último total conhecido — senão o total geral do
+  // mês "despencaria" por falta das outras categorias. Antes do primeiro registro, null.
+  const todas = db
+    .prepare('SELECT categoria, ano, mes, total FROM rebanho_snapshots WHERE especie = ? AND ano <= ? ORDER BY ano, mes')
     .all(especie, ano);
+  const ultimoTotal = {};
+  for (const l of todas) if (l.ano < ano) ultimoTotal[l.categoria] = l.total;
+  const linhas = todas.filter((l) => l.ano === ano);
 
   const meses = Array.from({ length: 12 }, (_, i) => {
     const mes = i + 1;
     const doMes = linhas.filter((l) => l.mes === mes);
+    for (const l of doMes) ultimoTotal[l.categoria] = l.total;
     const porCategoria = {};
     let totalGeral = 0;
     for (const c of categorias) {
-      const linha = doMes.find((l) => l.categoria === c);
-      porCategoria[c] = linha ? linha.total : null;
-      if (linha) totalGeral += linha.total;
+      const total = doMes.length ? ultimoTotal[c] ?? null : null; // mês sem dados segue todo null
+      porCategoria[c] = total;
+      if (total !== null) totalGeral += total;
     }
     return {
       mes: String(mes).padStart(2, '0'),
@@ -149,21 +156,28 @@ router.get('/mes', validarEspecie, (req, res) => {
     .prepare('SELECT * FROM rebanho_snapshots WHERE especie = ? AND ano = ? AND mes = ?')
     .all(especie, ano, mes);
 
+  // Categoria sem linha num mês que TEM dados: carrega o último total conhecido (sem
+  // movimento no mês). Mês sem nenhum dado continua zerado.
+  const ultimaLinhaAntes = db.prepare(
+    `SELECT total FROM rebanho_snapshots
+     WHERE especie = ? AND categoria = ? AND (ano < ? OR (ano = ? AND mes < ?))
+     ORDER BY ano DESC, mes DESC LIMIT 1`
+  );
   const porCategoria = categorias.map((c) => {
     const linha = linhas.find((l) => l.categoria === c);
-    return (
-      linha || {
-        categoria: c,
-        saldo_anterior: 0,
-        evolucao: 0,
-        obitos: 0,
-        vendas: 0,
-        compras: 0,
-        subtotal: 0,
-        nascimentos: 0,
-        total: 0,
-      }
-    );
+    if (linha) return linha;
+    const total = linhas.length ? ultimaLinhaAntes.get(especie, c, ano, ano, mes)?.total ?? 0 : 0;
+    return {
+      categoria: c,
+      saldo_anterior: total,
+      evolucao: 0,
+      obitos: 0,
+      vendas: 0,
+      compras: 0,
+      subtotal: total,
+      nascimentos: 0,
+      total,
+    };
   });
 
   const totais = porCategoria.reduce(
