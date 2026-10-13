@@ -155,6 +155,8 @@ Regras importantes:
   meses com eventos registrados, exclua os eventos antes ou não reimporte.
 - `GET /serie` e `GET /mes`: categoria sem linha num mês que tem dados repete o último total conhecido (um
   nascimento só cria linhas para as categorias da sua cadeia nos meses seguintes; sem isso o total "despencava").
+- O gráfico anual do rebanho só plota até o mês corrente: meses seguintes têm linhas por causa de transições já
+  agendadas (projeção) e ficam em branco; anos futuros inteiros também. A API continua devolvendo esses meses.
 
 ---
 
