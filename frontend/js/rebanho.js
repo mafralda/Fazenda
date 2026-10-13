@@ -172,9 +172,20 @@ function montarCards(serie, mesMaisRecente) {
   `;
 }
 
+// Meses que já aconteceram (até o atual). Os seguintes têm linhas só por causa de transições já
+// agendadas (maturação): são projeção, não rebanho real, então o gráfico os deixa em branco.
+function ateMesAtual(serie) {
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  if (Number(serie.ano) > anoAtual) return [];
+  if (Number(serie.ano) < anoAtual) return serie.meses;
+  return serie.meses.filter((m) => Number(m.mes) <= hoje.getMonth() + 1);
+}
+
 function montarGrafico(serie) {
   const ctx = document.getElementById('grafico-rebanho');
-  const mesesComDados = serie.meses.filter((m) => m.tem_dados);
+  const realizados = new Set(ateMesAtual(serie));
+  const mesesComDados = serie.meses.filter((m) => realizados.has(m) && m.tem_dados);
 
   if (!mesesComDados.length) {
     ctx.parentElement.insertAdjacentHTML('beforeend', '<p class="sem-dados">Sem dados de rebanho no período.</p>');
@@ -188,7 +199,7 @@ function montarGrafico(serie) {
       datasets: [
         {
           label: 'Total do rebanho',
-          data: serie.meses.map((m) => m.total_geral),
+          data: serie.meses.map((m) => (realizados.has(m) ? m.total_geral : null)),
           borderColor: '#2e7d32',
           backgroundColor: 'rgba(46, 125, 50, 0.15)',
           fill: true,
@@ -605,7 +616,9 @@ async function carregarTudo() {
   if (el.seletorAno.value === anoAtual && mesesComDados.some((m) => m.mes === mesAtual)) {
     mesReferencia = mesesComDados.find((m) => m.mes === mesAtual);
   } else {
-    mesReferencia = mesesComDados[mesesComDados.length - 1] || null;
+    // no ano corrente, o mês de referência não pode ser um mês futuro (só projeção)
+    const candidatos = el.seletorAno.value === anoAtual ? mesesComDados.filter((m) => m.mes <= mesAtual) : mesesComDados;
+    mesReferencia = candidatos[candidatos.length - 1] || null;
   }
 
   destruirGrafico();
