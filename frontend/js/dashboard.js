@@ -14,6 +14,7 @@ const el = {
   cardSaldoLabel: document.getElementById('card-saldo-label'),
   cardSaldoWrapper: document.getElementById('card-saldo-wrapper'),
   tabelaAnimais: document.getElementById('tabela-animais'),
+  tabelaMensal: document.getElementById('tabela-mensal'),
   btnNovoLancamento: document.getElementById('btn-novo-lancamento'),
 };
 
@@ -92,6 +93,36 @@ function montarGraficoAnimais(dados) {
   });
 }
 
+function celulaSaldo(saldoBruto) {
+  // arredonda para centavos: receitas - despesas em ponto flutuante pode sobrar -1e-13
+  // e pintar de vermelho um saldo que é zero
+  const saldo = Math.round(saldoBruto * 100) / 100;
+  const classe = saldo > 0 ? 'valor-receita' : saldo < 0 ? 'valor-despesa' : '';
+  return `<td class="col-valor ${classe}">${formatoMoeda.format(saldo)}</td>`;
+}
+
+function preencherTabelaMensal(dados) {
+  const linhas = dados.por_mes.map(
+    (m) => `
+      <tr>
+        <td>${m.nome}</td>
+        <td class="col-valor">${formatoMoeda.format(m.receitas)}</td>
+        <td class="col-valor">${formatoMoeda.format(m.despesas)}</td>
+        ${celulaSaldo(m.receitas - m.despesas)}
+      </tr>`
+  );
+
+  linhas.push(`
+    <tr class="linha-total">
+      <td>Total do ano</td>
+      <td class="col-valor">${formatoMoeda.format(dados.total_receitas)}</td>
+      <td class="col-valor">${formatoMoeda.format(dados.total_despesas)}</td>
+      ${celulaSaldo(dados.saldo)}
+    </tr>`);
+
+  el.tabelaMensal.innerHTML = linhas.join('');
+}
+
 function preencherTabelaAnimais(dados) {
   if (!dados.length) {
     el.tabelaAnimais.innerHTML = '<tr><td colspan="5" class="sem-dados">Sem vendas de animais no período.</td></tr>';
@@ -122,6 +153,7 @@ async function carregarDashboard() {
   el.cardSaldoWrapper.classList.toggle('card-negativo', dados.saldo < 0);
 
   destruirGraficos();
+  preencherTabelaMensal(dados);
   montarGraficoMensal(dados.por_mes);
   graficoDespesasCategoria = montarGraficoCategoria('grafico-despesas-categoria', dados.despesas_por_categoria);
   graficoReceitasCategoria = montarGraficoCategoria('grafico-receitas-categoria', dados.receitas_por_categoria);

@@ -42,6 +42,7 @@ facilitam a visão geral da saúde financeira da operação.
 | Medicamentos (veterinários) | |
 | Maquinário / Equipamentos (compra) | |
 | Benfeitorias / Construções | |
+| Sal Proteinado | |
 | Outras despesas | Categoria genérica. |
 
 As categorias serão **configuráveis** (o usuário pode adicionar novas categorias de

@@ -89,6 +89,22 @@ test('POST /api/lancamentos sem campos obrigatórios devolve 400', async () => {
   assert.match(corpo.erro, /obrigatórios/);
 });
 
+test('a categoria "Sal Proteinado" existe só como despesa e aceita lançamento', async () => {
+  const listar = async (tipo) => (await fetch(`${baseUrl}/api/categorias?tipo=${tipo}`)).json();
+  assert.ok((await listar('despesa')).some((c) => c.nome === 'Sal Proteinado'));
+  assert.ok(!(await listar('receita')).some((c) => c.nome === 'Sal Proteinado'));
+
+  const { status, corpo } = await postar({
+    tipo: 'despesa',
+    categoria_id: idCategoria('Sal Proteinado'),
+    descricao: 'Sal proteinado para o gado',
+    valor: 850,
+    data: '2026-03-12',
+  });
+  assert.equal(status, 201);
+  assert.equal(corpo.categoria_nome, 'Sal Proteinado');
+});
+
 test('POST /api/lancamentos com tipo inválido devolve 400', async () => {
   const { status, corpo } = await postar({
     tipo: 'transferencia',

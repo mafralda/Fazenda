@@ -107,6 +107,18 @@ if (count === 0) {
   console.log('Categorias iniciais criadas.');
 }
 
+// Categorias que precisam existir em qualquer banco, inclusive nos que já existiam
+// (as categorias iniciais acima só são criadas em banco vazio).
+const categoriasGarantidas = [['Sal Proteinado', 'despesa']];
+
+for (const [nome, tipo] of categoriasGarantidas) {
+  const existe = db.prepare('SELECT 1 FROM categorias WHERE nome = ? AND tipo = ?').get(nome, tipo);
+  if (!existe) {
+    db.prepare('INSERT INTO categorias (nome, tipo) VALUES (?, ?)').run(nome, tipo);
+    console.log(`Categoria "${nome}" criada.`);
+  }
+}
+
 // Remove os campos de CAPEX/OPEX de bancos criados antes dessa mudança.
 const colunasCategorias = db.prepare('PRAGMA table_info(categorias)').all();
 if (colunasCategorias.some((c) => c.name === 'classificacao_padrao')) {

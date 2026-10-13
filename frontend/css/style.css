@@ -367,6 +367,11 @@ body {
 }
 
 .col-valor { text-align: right; }
+
+.linha-total td {
+  font-weight: 700;
+  border-top: 2px solid var(--cinza-borda);
+}
 .col-acoes { text-align: center; }
 
 .tabela-lancamentos .vazio {
