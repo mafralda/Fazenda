@@ -680,3 +680,8 @@ dialog::backdrop {
     font-size: 16px;
   }
 }
+
+.tabela-paricoes .percentual {
+  color: var(--texto-suave);
+  margin-left: 0.25rem;
+}

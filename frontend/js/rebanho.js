@@ -657,6 +657,25 @@ const COLUNAS_TABELA_PARICOES = [
   'natimortos', 'mortes', 'total_mortos', 'ovelhas_mortas', 'abortos',
 ];
 
+// Colunas com percentual na aba: campo → base da divisão (ovelhas que pariram ou total de crias).
+const BASE_PERCENTUAL_PARICAO = {
+  partos_duplos: 'ovelhas',
+  aleijados: 'crias',
+  natimortos: 'crias',
+  mortes: 'crias',
+  total_mortos: 'crias',
+  abortos: 'ovelhas',
+  ovelhas_mortas: 'ovelhas',
+};
+const formatoPercentual = new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+// "valor <small>x,x%</small>"; sem base (zero), só o valor.
+function celulaParicao(campo, valor, linha) {
+  const base = linha[BASE_PERCENTUAL_PARICAO[campo]];
+  const percentual = base ? ` <small class="percentual">${formatoPercentual.format(valor / base)}</small>` : '';
+  return `<td class="col-valor">${valor}${percentual}</td>`;
+}
+
 const inputsParicao = {};
 const automaticoParicao = { crias: true, total_mortos: true };
 
@@ -695,7 +714,7 @@ function linhaParicao(p) {
   return `
     <tr>
       <td>${formatoDataCurta(p.data)}</td>
-      ${COLUNAS_TABELA_PARICOES.map((c) => `<td class="col-valor">${p[c]}</td>`).join('')}
+      ${COLUNAS_TABELA_PARICOES.map((c) => celulaParicao(c, p[c], p)).join('')}
       <td>${rebanho}</td>
       <td class="obs">${escapar(p.observacoes)}</td>
       <td class="col-acoes">
@@ -722,12 +741,14 @@ async function carregarParicoes() {
     return;
   }
 
-  const totais = COLUNAS_TABELA_PARICOES.map((c) => lista.reduce((soma, p) => soma + p[c], 0));
+  const totais = Object.fromEntries(
+    COLUNAS_TABELA_PARICOES.map((c) => [c, lista.reduce((soma, p) => soma + p[c], 0)])
+  );
   el.tabelaParicoes.innerHTML =
     lista.map(linhaParicao).join('') +
     `<tr class="linha-total">
       <td>Total</td>
-      ${totais.map((t) => `<td class="col-valor">${t}</td>`).join('')}
+      ${COLUNAS_TABELA_PARICOES.map((c) => celulaParicao(c, totais[c], totais)).join('')}
       <td></td><td></td><td></td>
     </tr>`;
 }
@@ -931,9 +952,11 @@ async function abrirModalParicao(paricao = null) {
   usuarioMexeuAplicar = Boolean(paricao);
   desmarcadoAutomaticamente = false;
   requisicaoPlanilha++; // uma resposta da abertura anterior não pode aparecer neste modal
-  // parição nova: crias e total de mortos calculados; edição: os valores gravados
-  automaticoParicao.crias = !paricao;
-  automaticoParicao.total_mortos = !paricao;
+  // parição nova: crias e total de mortos calculados; edição: os valores gravados, a menos que
+  // sigam a fórmula (aí continuam calculados e acompanham o que for alterado, como os mortos)
+  automaticoParicao.total_mortos = !paricao || paricao.total_mortos === paricao.natimortos + paricao.mortes + paricao.aleijados;
+  automaticoParicao.crias =
+    !paricao || paricao.crias === paricao.borregos_vivos + paricao.borregas_vivas + paricao.total_mortos;
   recalcularAutomaticos();
   atualizarModalParicao();
   el.modalParicao.showModal();
