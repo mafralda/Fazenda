@@ -4,3 +4,4 @@ backend/data/
 *.db-shm
 *.db-wal
 excel/
+.claude/settings.local.json
