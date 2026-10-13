@@ -21,14 +21,16 @@ const NOMES_MES = [
 // Cadeia de maturação por espécie/categoria de nascimento: quantos meses após o
 // nascimento cada transição acontece, e para qual categoria o animal vai.
 const CADEIAS_MATURACAO = {
+  // `meses` conta a partir do nascimento. Reprodutor NÃO entra na cadeia: o carneiro só
+  // vira reprodutor se for promovido ao posto (decisão em aberto — ver ARQUITETURA.md 4.3).
   ovino: {
     Borrego: [
-      { meses: 12, categoria: 'Marrão' },
-      { meses: 24, categoria: 'Reprodutor' },
+      { meses: 3, categoria: 'Marrão' },
+      { meses: 12, categoria: 'Carneiro' },
     ],
     Borrega: [
-      { meses: 12, categoria: 'Marrã' },
-      { meses: 24, categoria: 'Ovelha' },
+      { meses: 3, categoria: 'Marrã' },
+      { meses: 12, categoria: 'Ovelha' },
     ],
   },
   bovino: {

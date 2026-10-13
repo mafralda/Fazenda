@@ -95,6 +95,20 @@ meses seguintes** (`rebanho-core.js`).
 | Venda de animais | Lançamentos (categoria + espécie) | `vendas` do mês |
 | Compra de animais | Lançamentos (categoria + espécie) | `compras` do mês |
 
+**Maturação** (transições geradas ao registrar um nascimento; os meses contam a partir do nascimento):
+
+| Espécie | Cadeia |
+|---|---|
+| Ovino (macho) | Borrego → **3 meses** Marrão → **1 ano** Carneiro |
+| Ovino (fêmea) | Borrega → **3 meses** Marrã → **1 ano** Ovelha |
+| Bovino (macho) | Bezerro → 12 meses Garrote → 24 meses Novilho → 36 meses Touro |
+| Bovino (fêmea) | Bezerra → 12 meses Garrota → 24 meses Novilha → 36 meses Vaca |
+
+**Decisão em aberto — Reprodutor (ovino):** o carneiro só vira reprodutor se for promovido ao posto, então
+`Reprodutor` não faz parte da cadeia automática. Hoje não existe um evento de "promoção" (Carneiro → Reprodutor):
+o saldo de Reprodutor vem das planilhas importadas e só muda por óbito, venda ou compra. Falta decidir como registrar a
+promoção (provavelmente um evento próprio na tela de Rebanho).
+
 Regras importantes:
 - **Editar/excluir refaz o efeito**: cada evento é revertido e reaplicado em transação. Para venda/compra,
   `rebanho_lancamentos` guarda o que foi aplicado, para reverter exatamente isso.

@@ -74,15 +74,17 @@ test('PUT /nascimento/:id refaz o snapshot e regenera as transições', async ()
   assert.equal(linha('ovino', 'Borrego', 2025, 4).nascimentos, 3);
   assert.equal(linha('ovino', 'Borrego', 2025, 4).total, 3);
 
-  // Transições antigas (2026-03/2027-03) saem; novas (2026-04/2027-04) entram com a nova quantidade.
+  // Transições antigas (2025-06 aos 3 meses, 2026-03 com 1 ano) saem; as novas
+  // (2025-07 e 2026-04) entram com a nova quantidade.
   assert.deepEqual(
     transicoesDe(id).map((t) => [t.quantidade, t.ano, t.mes]),
-    [[3, 2026, 4], [3, 2027, 4]]
+    [[3, 2025, 7], [3, 2026, 4]]
   );
-  assert.equal(linha('ovino', 'Marrão', 2026, 3).total, 0);
-  assert.equal(linha('ovino', 'Borrego', 2026, 4).total, 0);
-  assert.equal(linha('ovino', 'Marrão', 2026, 4).total, 3);
-  assert.equal(linha('ovino', 'Reprodutor', 2027, 4).total, 3);
+  assert.equal(linha('ovino', 'Marrão', 2025, 6).total, 0);
+  assert.equal(linha('ovino', 'Borrego', 2025, 7).total, 0);
+  assert.equal(linha('ovino', 'Marrão', 2025, 7).total, 3);
+  assert.equal(linha('ovino', 'Marrão', 2026, 3).total, 3); // ainda marrão: vira carneiro em 04/2026
+  assert.equal(linha('ovino', 'Carneiro', 2026, 4).total, 3);
 
   const salvo = db.prepare('SELECT * FROM rebanho_nascimentos WHERE id = ?').get(id);
   assert.equal(salvo.observacoes, 'corrigido');
@@ -207,30 +209,60 @@ test('GET /categorias devolve todas as categorias da espécie', async () => {
 
 // ---------- Transições ----------
 
+test('cadeia de maturação dos ovinos: 3 meses e 1 ano; Reprodutor fica de fora', async () => {
+  const opcoes = await chamar('GET', '/categorias-nascimento?especie=ovino');
+  assert.deepEqual(
+    opcoes.corpo.map((c) => [c.categoria, c.proxima_transicao.meses, c.proxima_transicao.categoria]),
+    [['Borrego', 3, 'Marrão'], ['Borrega', 3, 'Marrã']]
+  );
+
+  const macho = await chamar('POST', '/nascimento', {
+    especie: 'ovino', categoria: 'Borrego', quantidade: 1, data: '2045-01-15',
+  });
+  const femea = await chamar('POST', '/nascimento', {
+    especie: 'ovino', categoria: 'Borrega', quantidade: 1, data: '2045-01-15',
+  });
+  const cadeia = (id) =>
+    db
+      .prepare('SELECT categoria_origem o, categoria_destino d, ano, mes FROM rebanho_transicoes WHERE nascimento_id = ? ORDER BY ano, mes')
+      .all(id)
+      .map((t) => `${t.o}→${t.d} ${t.mes}/${t.ano}`);
+  assert.deepEqual(cadeia(macho.corpo.id), ['Borrego→Marrão 4/2045', 'Marrão→Carneiro 1/2046']);
+  assert.deepEqual(cadeia(femea.corpo.id), ['Borrega→Marrã 4/2045', 'Marrã→Ovelha 1/2046']);
+
+  // Carneiro é categoria do rebanho; Reprodutor continua existindo, mas ninguém vira reprodutor sozinho
+  const categorias = (await chamar('GET', '/categorias?especie=ovino')).corpo;
+  assert.ok(categorias.includes('Carneiro') && categorias.includes('Reprodutor'));
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM rebanho_transicoes WHERE categoria_destino = 'Reprodutor'").get().n, 0);
+
+  await chamar('DELETE', `/nascimento/${macho.corpo.id}`);
+  await chamar('DELETE', `/nascimento/${femea.corpo.id}`);
+});
+
 test('PUT /transicao/:id move quantidade e mês no snapshot', async () => {
   const { corpo } = await chamar('POST', '/nascimento', {
     especie: 'ovino', categoria: 'Borrega', quantidade: 4, data: '2031-06-01',
   });
   const [primeira] = transicoesDe(corpo.id);
-  assert.deepEqual([primeira.ano, primeira.mes], [2032, 6]);
+  assert.deepEqual([primeira.ano, primeira.mes], [2031, 9]); // Borrega → Marrã aos 3 meses
 
-  const res = await chamar('PUT', `/transicao/${primeira.id}`, { quantidade: 3, mes_ano: '2032-08' });
+  const res = await chamar('PUT', `/transicao/${primeira.id}`, { quantidade: 3, mes_ano: '2031-11' });
   assert.equal(res.status, 200);
 
   const [editada] = transicoesDe(corpo.id);
-  assert.deepEqual([editada.quantidade, editada.ano, editada.mes], [3, 2032, 8]);
-  assert.equal(linha('ovino', 'Marrã', 2032, 6).evolucao, 0);
-  assert.equal(linha('ovino', 'Marrã', 2032, 8).evolucao, 3);
-  assert.equal(linha('ovino', 'Borrega', 2032, 6).total, 4);
-  assert.equal(linha('ovino', 'Borrega', 2032, 8).total, 1);
+  assert.deepEqual([editada.quantidade, editada.ano, editada.mes], [3, 2031, 11]);
+  assert.equal(linha('ovino', 'Marrã', 2031, 9).evolucao, 0);
+  assert.equal(linha('ovino', 'Marrã', 2031, 11).evolucao, 3);
+  assert.equal(linha('ovino', 'Borrega', 2031, 9).total, 4);
+  assert.equal(linha('ovino', 'Borrega', 2031, 11).total, 1);
 
-  // a 2ª transição (Marrã → Ovelha, 4 animais em 06/2033) agora supera o que sobrou em Marrã
+  // a 2ª transição (Marrã → Ovelha, 4 animais em 06/2032) agora supera o que sobrou em Marrã
   assert.equal(res.corpo.avisos.length, 1);
-  assert.match(res.corpo.avisos[0], /Marrã.*-1.*06\/2033/);
+  assert.match(res.corpo.avisos[0], /Marrã.*-1.*06\/2032/);
 
-  assert.equal((await chamar('PUT', `/transicao/${primeira.id}`, { quantidade: 0, mes_ano: '2032-08' })).status, 400);
-  assert.equal((await chamar('PUT', `/transicao/${primeira.id}`, { quantidade: 1, mes_ano: '2032-13' })).status, 400);
-  assert.equal((await chamar('PUT', '/transicao/99999', { quantidade: 1, mes_ano: '2032-08' })).status, 404);
+  assert.equal((await chamar('PUT', `/transicao/${primeira.id}`, { quantidade: 0, mes_ano: '2031-11' })).status, 400);
+  assert.equal((await chamar('PUT', `/transicao/${primeira.id}`, { quantidade: 1, mes_ano: '2031-13' })).status, 400);
+  assert.equal((await chamar('PUT', '/transicao/99999', { quantidade: 1, mes_ano: '2031-11' })).status, 404);
 });
 
 // ---------- Histórico e filtros ----------

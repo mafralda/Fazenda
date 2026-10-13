@@ -4,7 +4,7 @@ const db = require('./db');
 
 const ORDEM_CATEGORIAS = {
   bovino: ['Bezerro', 'Bezerra', 'Garrote', 'Garrota', 'Novilho', 'Novilha', 'Vaca', 'Touro'],
-  ovino: ['Borrego', 'Borrega', 'Marrão', 'Marrã', 'Ovelha', 'Reprodutor'],
+  ovino: ['Borrego', 'Borrega', 'Marrão', 'Marrã', 'Ovelha', 'Carneiro', 'Reprodutor'],
 };
 
 // Erro de regra de negócio/validação: vira 400 e desfaz a transação em andamento.
