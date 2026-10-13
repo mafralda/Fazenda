@@ -67,6 +67,16 @@ CREATE TABLE IF NOT EXISTS rebanho_transicoes (
   nascimento_id INTEGER NOT NULL REFERENCES rebanho_nascimentos(id),
   criado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS rebanho_obitos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  especie TEXT NOT NULL CHECK (especie IN ('bovino', 'ovino')),
+  categoria TEXT NOT NULL,
+  quantidade INTEGER NOT NULL,
+  data TEXT NOT NULL,
+  observacoes TEXT,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 const count = db.prepare('SELECT COUNT(*) as total FROM categorias').get().total;

@@ -259,6 +259,18 @@ body {
 
 .badge-nascimento { background: #e8f5e9; color: var(--verde-escuro); }
 .badge-transicao { background: #e3f2fd; color: var(--azul); }
+.badge-obito { background: #ffebee; color: var(--vermelho); }
+
+.obs-automatica {
+  color: var(--texto-suave);
+  font-style: italic;
+}
+
+.topbar-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 
 .filtros {
   display: flex;
@@ -402,7 +414,9 @@ dialog::backdrop {
 }
 
 #form-lancamento,
-#form-nascimento {
+#form-nascimento,
+#form-obito,
+#form-transicao {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -410,7 +424,9 @@ dialog::backdrop {
 }
 
 #form-lancamento label,
-#form-nascimento label {
+#form-nascimento label,
+#form-obito label,
+#form-transicao label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -423,7 +439,11 @@ dialog::backdrop {
 #form-lancamento textarea,
 #form-nascimento input,
 #form-nascimento select,
-#form-nascimento textarea {
+#form-nascimento textarea,
+#form-obito input,
+#form-obito select,
+#form-obito textarea,
+#form-transicao input {
   padding: 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--cinza-borda);
@@ -530,7 +550,9 @@ dialog::backdrop {
   }
 
   #form-lancamento,
-  #form-nascimento {
+  #form-nascimento,
+  #form-obito,
+  #form-transicao {
     height: 100%;
     overflow-y: auto;
   }
@@ -552,7 +574,11 @@ dialog::backdrop {
   #form-lancamento textarea,
   #form-nascimento input,
   #form-nascimento select,
-  #form-nascimento textarea {
+  #form-nascimento textarea,
+  #form-obito input,
+  #form-obito select,
+  #form-obito textarea,
+  #form-transicao input {
     font-size: 16px;
   }
 }

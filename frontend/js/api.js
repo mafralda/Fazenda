@@ -40,9 +40,23 @@ const api = {
     mes: (especie, ano, mes) => apiRequest(`/rebanho/mes?${new URLSearchParams({ especie, ano, mes })}`),
     categoriasNascimento: (especie) =>
       apiRequest(`/rebanho/categorias-nascimento?${new URLSearchParams({ especie })}`),
+    categorias: (especie) => apiRequest(`/rebanho/categorias?${new URLSearchParams({ especie })}`),
     registrarNascimento: (dados) =>
       apiRequest('/rebanho/nascimento', { method: 'POST', body: JSON.stringify(dados) }),
+    atualizarNascimento: (id, dados) =>
+      apiRequest(`/rebanho/nascimento/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
     excluirNascimento: (id) => apiRequest(`/rebanho/nascimento/${id}`, { method: 'DELETE' }),
-    historico: (especie) => apiRequest(`/rebanho/historico?${new URLSearchParams({ especie })}`),
+    registrarObito: (dados) => apiRequest('/rebanho/obito', { method: 'POST', body: JSON.stringify(dados) }),
+    atualizarObito: (id, dados) =>
+      apiRequest(`/rebanho/obito/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
+    excluirObito: (id) => apiRequest(`/rebanho/obito/${id}`, { method: 'DELETE' }),
+    atualizarTransicao: (id, dados) =>
+      apiRequest(`/rebanho/transicao/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
+    // filtros: { data_inicio, data_fim, evento } — valores vazios são omitidos
+    historico: (especie, filtros = {}) => {
+      const params = { especie };
+      for (const [chave, valor] of Object.entries(filtros)) if (valor) params[chave] = valor;
+      return apiRequest(`/rebanho/historico?${new URLSearchParams(params)}`);
+    },
   },
 };

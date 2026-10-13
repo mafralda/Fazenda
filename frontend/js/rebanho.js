@@ -14,10 +14,18 @@ const el = {
   abaVisaoGeral: document.getElementById('aba-visao-geral'),
   abaHistorico: document.getElementById('aba-historico'),
   tabelaHistorico: document.getElementById('tabela-historico'),
+  histPeriodo: document.getElementById('hist-periodo'),
+  histDataInicio: document.getElementById('hist-data-inicio'),
+  histDataFim: document.getElementById('hist-data-fim'),
+  histEvento: document.getElementById('hist-evento'),
+  histLimpar: document.getElementById('hist-limpar'),
 
   btnNovoNascimento: document.getElementById('btn-novo-nascimento'),
+  btnNovoObito: document.getElementById('btn-novo-obito'),
   modalNascimento: document.getElementById('modal-nascimento'),
   formNascimento: document.getElementById('form-nascimento'),
+  nascTitulo: document.getElementById('nasc-titulo'),
+  nascAvisoEdicao: document.getElementById('nasc-aviso-edicao'),
   nascEspecie: document.getElementById('nasc-especie'),
   nascCategoria: document.getElementById('nasc-categoria'),
   nascQuantidade: document.getElementById('nasc-quantidade'),
@@ -25,10 +33,46 @@ const el = {
   nascObservacoes: document.getElementById('nasc-observacoes'),
   nascPreview: document.getElementById('nasc-preview'),
   nascBtnCancelar: document.getElementById('nasc-btn-cancelar'),
+
+  modalObito: document.getElementById('modal-obito'),
+  formObito: document.getElementById('form-obito'),
+  obitoTitulo: document.getElementById('obito-titulo'),
+  obitoEspecie: document.getElementById('obito-especie'),
+  obitoCategoria: document.getElementById('obito-categoria'),
+  obitoQuantidade: document.getElementById('obito-quantidade'),
+  obitoData: document.getElementById('obito-data'),
+  obitoObservacoes: document.getElementById('obito-observacoes'),
+  obitoBtnCancelar: document.getElementById('obito-btn-cancelar'),
+
+  modalTransicao: document.getElementById('modal-transicao'),
+  formTransicao: document.getElementById('form-transicao'),
+  transDescricao: document.getElementById('trans-descricao'),
+  transQuantidade: document.getElementById('trans-quantidade'),
+  transMes: document.getElementById('trans-mes'),
+  transBtnCancelar: document.getElementById('trans-btn-cancelar'),
 };
 
 let especieAtual = 'bovino';
 let graficoRebanho = null;
+let eventosHistorico = []; // última listagem exibida: alimenta os modais de edição
+let requisicaoHistorico = 0; // descarta respostas antigas quando os filtros mudam rápido
+let nascimentoEditandoId = null;
+let obitoEditandoId = null;
+let transicaoEditandoId = null;
+
+function escapar(texto) {
+  const mapa = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(texto ?? '').replace(/[&<>"']/g, (c) => mapa[c]);
+}
+
+// AAAA-MM-DD no fuso local (toISOString usaria UTC e viraria o dia à noite no Brasil)
+function formatoDataISO(data) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+}
+
+function historicoVisivel() {
+  return el.abaHistorico.style.display !== 'none';
+}
 
 function nomesMeses() {
   return [
@@ -48,6 +92,7 @@ async function trocarEspecie(especie) {
   el.btnBovino.classList.toggle('ativo', especie === 'bovino');
   el.btnOvino.classList.toggle('ativo', especie === 'ovino');
   await carregarAnos();
+  if (historicoVisivel()) await carregarHistorico();
 }
 
 async function carregarAnos() {
@@ -171,45 +216,157 @@ function formatoDataCurta(isoDate) {
   return `${dia}/${mes}/${ano}`;
 }
 
-async function carregarHistorico() {
-  const eventos = await api.rebanho.historico(especieAtual);
+// ---------- Filtros do histórico ----------
 
-  if (!eventos.length) {
-    el.tabelaHistorico.innerHTML = '<tr><td colspan="6" class="vazio">Nenhum nascimento registrado ainda.</td></tr>';
+function filtrosHistorico() {
+  return {
+    data_inicio: el.histDataInicio.value,
+    data_fim: el.histDataFim.value,
+    evento: el.histEvento.value,
+  };
+}
+
+function intervaloDoPeriodo(periodo, hoje = new Date()) {
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth();
+  switch (periodo) {
+    case 'mes-atual': return [new Date(ano, mes, 1), new Date(ano, mes + 1, 0)];
+    case 'mes-passado': return [new Date(ano, mes - 1, 1), new Date(ano, mes, 0)];
+    case '90-dias': return [new Date(ano, mes, hoje.getDate() - 90), hoje];
+    case 'ano-atual': return [new Date(ano, 0, 1), new Date(ano, 11, 31)];
+    default: return null;
+  }
+}
+
+// "Personalizado" mantém as datas digitadas; os demais períodos preenchem De/Até.
+function aoMudarPeriodo() {
+  const periodo = el.histPeriodo.value;
+  if (periodo !== 'personalizado') {
+    const intervalo = intervaloDoPeriodo(periodo);
+    el.histDataInicio.value = intervalo ? formatoDataISO(intervalo[0]) : '';
+    el.histDataFim.value = intervalo ? formatoDataISO(intervalo[1]) : '';
+  }
+  return carregarHistorico();
+}
+
+function aoMudarDatas() {
+  el.histPeriodo.value = el.histDataInicio.value || el.histDataFim.value ? 'personalizado' : '';
+  return carregarHistorico();
+}
+
+function limparFiltrosHistorico() {
+  el.histPeriodo.value = '';
+  el.histDataInicio.value = '';
+  el.histDataFim.value = '';
+  el.histEvento.value = '';
+  return carregarHistorico();
+}
+
+// ---------- Histórico ----------
+
+function mensagemHistorico(texto) {
+  el.tabelaHistorico.innerHTML = `<tr><td colspan="6" class="vazio">${escapar(texto)}</td></tr>`;
+}
+
+function acoesEvento(ev, { excluivel }) {
+  return `
+    <button class="link-acao" data-acao="editar" data-tipo="${ev.tipo}" data-id="${ev.id}">Editar</button>
+    ${excluivel ? `<button class="link-acao excluir" data-acao="excluir" data-tipo="${ev.tipo}" data-id="${ev.id}">Excluir</button>` : ''}`;
+}
+
+function linhaHistorico(ev) {
+  if (ev.tipo === 'transicao') {
+    return `
+      <tr>
+        <td>${formatoDataCurta(ev.data).slice(3)}</td>
+        <td><span class="badge badge-transicao">Transição</span></td>
+        <td>${escapar(ev.categoria_origem)} → ${escapar(ev.categoria_destino)}</td>
+        <td class="col-valor">${ev.quantidade}</td>
+        <td class="obs-automatica">gerada automaticamente</td>
+        <td class="col-acoes">${acoesEvento(ev, { excluivel: false })}</td>
+      </tr>`;
+  }
+
+  const ehObito = ev.tipo === 'obito';
+  return `
+    <tr>
+      <td>${formatoDataCurta(ev.data)}</td>
+      <td><span class="badge ${ehObito ? 'badge-obito' : 'badge-nascimento'}">${ehObito ? 'Óbito' : 'Nascimento'}</span></td>
+      <td>${escapar(ev.categoria)}</td>
+      <td class="col-valor">${ev.quantidade}</td>
+      <td>${escapar(ev.observacoes)}</td>
+      <td class="col-acoes">${acoesEvento(ev, { excluivel: true })}</td>
+    </tr>`;
+}
+
+async function carregarHistorico() {
+  const filtros = filtrosHistorico();
+  const filtrado = Object.values(filtros).some(Boolean);
+  const requisicao = ++requisicaoHistorico; // antes de qualquer retorno: invalida respostas em voo
+
+  if (filtros.data_inicio && filtros.data_fim && filtros.data_inicio > filtros.data_fim) {
+    eventosHistorico = [];
+    mensagemHistorico('A data inicial não pode ser posterior à data final.');
     return;
   }
 
-  el.tabelaHistorico.innerHTML = eventos
-    .map((ev) => {
-      if (ev.tipo === 'nascimento') {
-        return `
-          <tr>
-            <td>${formatoDataCurta(ev.data)}</td>
-            <td><span class="badge badge-nascimento">Nascimento</span></td>
-            <td>${ev.categoria}</td>
-            <td class="col-valor">${ev.quantidade}</td>
-            <td>${ev.observacoes || ''}</td>
-            <td class="col-acoes"><button class="link-acao excluir" data-excluir-nascimento="${ev.id}">Excluir</button></td>
-          </tr>`;
-      }
-      return `
-        <tr>
-          <td>${formatoDataCurta(ev.data).slice(3)}</td>
-          <td><span class="badge badge-transicao">Transição</span></td>
-          <td>${ev.categoria_origem} → ${ev.categoria_destino}</td>
-          <td class="col-valor">${ev.quantidade}</td>
-          <td class="sem-dados">gerada automaticamente</td>
-          <td class="col-acoes"></td>
-        </tr>`;
-    })
-    .join('');
+  let eventos;
+  try {
+    eventos = await api.rebanho.historico(especieAtual, filtros);
+  } catch (erro) {
+    if (requisicao === requisicaoHistorico) mensagemHistorico(erro.message);
+    return;
+  }
+  if (requisicao !== requisicaoHistorico) return;
+
+  eventosHistorico = eventos;
+
+  if (!eventos.length) {
+    mensagemHistorico(
+      filtrado ? 'Nenhum evento encontrado para os filtros selecionados.' : 'Nenhum evento registrado ainda.'
+    );
+    return;
+  }
+
+  el.tabelaHistorico.innerHTML = eventos.map(linhaHistorico).join('');
 }
 
-async function excluirNascimento(id) {
-  if (!confirm('Excluir este nascimento? As transições futuras geradas por ele também serão desfeitas.')) return;
-  await api.rebanho.excluirNascimento(id);
-  await carregarHistorico();
+// Recarrega visão geral e (se estiver aberta) a aba de histórico depois de uma mudança.
+async function atualizarTelas() {
   await carregarTudo();
+  if (historicoVisivel()) await carregarHistorico();
+}
+
+function avisarErro(erro) {
+  alert(erro.message);
+}
+
+// A API devolve `avisos` quando a mudança deixa alguma categoria com saldo negativo.
+function mostrarAvisos(resposta) {
+  if (resposta?.avisos?.length) alert(`Salvo, mas atenção:\n\n${resposta.avisos.join('\n')}`);
+}
+
+async function excluirEvento(tipo, id) {
+  const confirmacao = {
+    nascimento: 'Excluir este nascimento? As transições futuras geradas por ele também serão desfeitas.',
+    obito: 'Excluir este óbito? Os animais voltam ao saldo do rebanho.',
+  }[tipo];
+  if (!confirmacao || !confirm(confirmacao)) return;
+
+  try {
+    const resposta =
+      tipo === 'nascimento' ? await api.rebanho.excluirNascimento(id) : await api.rebanho.excluirObito(id);
+    await atualizarTelas();
+    mostrarAvisos(resposta);
+  } catch (erro) {
+    alert(erro.message);
+  }
+}
+
+function editarEvento(ev) {
+  if (ev.tipo === 'nascimento') return abrirModalNascimento(ev);
+  if (ev.tipo === 'obito') return abrirModalObito(ev);
+  return abrirModalTransicao(ev);
 }
 
 // ---------- Modal de nascimento ----------
@@ -245,33 +402,130 @@ async function atualizarPreview() {
   el.nascPreview.textContent = `Vira ${info.proxima_transicao.categoria} em ${somarMeses(data, info.proxima_transicao.meses)} (${info.proxima_transicao.meses} meses de idade).`;
 }
 
-function abrirModalNascimento() {
+// Sem argumento abre o modal para registrar; com um nascimento do histórico, para editar.
+async function abrirModalNascimento(nascimento = null) {
+  nascimentoEditandoId = nascimento ? nascimento.id : null;
   el.formNascimento.reset();
+  el.nascTitulo.textContent = nascimento ? 'Editar nascimento' : 'Registrar nascimento';
+  el.nascAvisoEdicao.hidden = !nascimento;
   el.nascEspecie.value = especieAtual;
-  el.nascData.value = new Date().toISOString().slice(0, 10);
-  carregarCategoriasNascimento();
+  el.nascEspecie.disabled = Boolean(nascimento); // a espécie de um lançamento não muda
+  el.nascData.value = nascimento ? nascimento.data : formatoDataISO(new Date());
+  if (nascimento) {
+    el.nascQuantidade.value = nascimento.quantidade;
+    el.nascObservacoes.value = nascimento.observacoes || '';
+  }
+
+  await carregarCategoriasNascimento();
+  if (nascimento) {
+    el.nascCategoria.value = nascimento.categoria;
+    await atualizarPreview();
+  }
   el.modalNascimento.showModal();
 }
 
 async function salvarNascimento(evento) {
   evento.preventDefault();
 
+  const dados = {
+    especie: el.nascEspecie.value,
+    categoria: el.nascCategoria.value,
+    quantidade: Number(el.nascQuantidade.value),
+    data: el.nascData.value,
+    observacoes: el.nascObservacoes.value,
+  };
+
   try {
-    await api.rebanho.registrarNascimento({
-      especie: el.nascEspecie.value,
-      categoria: el.nascCategoria.value,
-      quantidade: Number(el.nascQuantidade.value),
-      data: el.nascData.value,
-      observacoes: el.nascObservacoes.value,
-    });
+    const resposta = nascimentoEditandoId
+      ? await api.rebanho.atualizarNascimento(nascimentoEditandoId, dados)
+      : await api.rebanho.registrarNascimento(dados);
     el.modalNascimento.close();
 
-    if (el.nascEspecie.value !== especieAtual) {
-      await trocarEspecie(el.nascEspecie.value);
+    if (!nascimentoEditandoId && dados.especie !== especieAtual) {
+      await trocarEspecie(dados.especie);
     } else {
-      await carregarTudo();
+      await atualizarTelas();
     }
-    if (el.abaHistorico.style.display !== 'none') await carregarHistorico();
+    mostrarAvisos(resposta);
+  } catch (erro) {
+    alert(erro.message);
+  }
+}
+
+// ---------- Modal de óbito ----------
+
+async function carregarCategoriasObito() {
+  const categorias = await api.rebanho.categorias(el.obitoEspecie.value);
+  el.obitoCategoria.innerHTML = categorias.map((c) => `<option value="${escapar(c)}">${escapar(c)}</option>`).join('');
+}
+
+// Sem argumento abre o modal para registrar; com um óbito do histórico, para editar.
+async function abrirModalObito(obito = null) {
+  obitoEditandoId = obito ? obito.id : null;
+  el.formObito.reset();
+  el.obitoTitulo.textContent = obito ? 'Editar óbito' : 'Registrar óbito';
+  el.obitoEspecie.value = especieAtual;
+  el.obitoEspecie.disabled = Boolean(obito);
+  el.obitoData.value = obito ? obito.data : formatoDataISO(new Date());
+  if (obito) {
+    el.obitoQuantidade.value = obito.quantidade;
+    el.obitoObservacoes.value = obito.observacoes || '';
+  }
+
+  await carregarCategoriasObito();
+  if (obito) el.obitoCategoria.value = obito.categoria;
+  el.modalObito.showModal();
+}
+
+async function salvarObito(evento) {
+  evento.preventDefault();
+
+  const dados = {
+    especie: el.obitoEspecie.value,
+    categoria: el.obitoCategoria.value,
+    quantidade: Number(el.obitoQuantidade.value),
+    data: el.obitoData.value,
+    observacoes: el.obitoObservacoes.value,
+  };
+
+  try {
+    const resposta = obitoEditandoId
+      ? await api.rebanho.atualizarObito(obitoEditandoId, dados)
+      : await api.rebanho.registrarObito(dados);
+    el.modalObito.close();
+
+    if (!obitoEditandoId && dados.especie !== especieAtual) {
+      await trocarEspecie(dados.especie);
+    } else {
+      await atualizarTelas();
+    }
+    mostrarAvisos(resposta);
+  } catch (erro) {
+    alert(erro.message);
+  }
+}
+
+// ---------- Modal de transição (só edição) ----------
+
+function abrirModalTransicao(transicao) {
+  transicaoEditandoId = transicao.id;
+  el.transDescricao.textContent = `${transicao.categoria_origem} → ${transicao.categoria_destino}`;
+  el.transQuantidade.value = transicao.quantidade;
+  el.transMes.value = transicao.data.slice(0, 7);
+  el.modalTransicao.showModal();
+}
+
+async function salvarTransicao(evento) {
+  evento.preventDefault();
+
+  try {
+    const resposta = await api.rebanho.atualizarTransicao(transicaoEditandoId, {
+      quantidade: Number(el.transQuantidade.value),
+      mes_ano: el.transMes.value,
+    });
+    el.modalTransicao.close();
+    await atualizarTelas();
+    mostrarAvisos(resposta);
   } catch (erro) {
     alert(erro.message);
   }
@@ -308,17 +562,37 @@ function ligarEventos() {
   el.tabVisaoGeral.addEventListener('click', () => trocarAba('visao-geral'));
   el.tabHistorico.addEventListener('click', () => trocarAba('historico'));
 
+  el.histPeriodo.addEventListener('change', aoMudarPeriodo);
+  el.histDataInicio.addEventListener('change', aoMudarDatas);
+  el.histDataFim.addEventListener('change', aoMudarDatas);
+  el.histEvento.addEventListener('change', carregarHistorico);
+  el.histLimpar.addEventListener('click', limparFiltrosHistorico);
+
   el.tabelaHistorico.addEventListener('click', (evento) => {
-    const id = evento.target.dataset.excluirNascimento;
-    if (id) excluirNascimento(id);
+    const botao = evento.target.closest('button[data-acao]');
+    if (!botao) return;
+    const { acao, tipo, id } = botao.dataset;
+
+    if (acao === 'excluir') return excluirEvento(tipo, id);
+    const ev = eventosHistorico.find((e) => e.tipo === tipo && String(e.id) === id);
+    if (ev) Promise.resolve(editarEvento(ev)).catch(avisarErro);
   });
 
-  el.btnNovoNascimento.addEventListener('click', abrirModalNascimento);
+  // arrow functions: o click não pode passar o evento como "nascimento"/"óbito" a editar
+  el.btnNovoNascimento.addEventListener('click', () => abrirModalNascimento().catch(avisarErro));
   el.nascBtnCancelar.addEventListener('click', () => el.modalNascimento.close());
   el.formNascimento.addEventListener('submit', salvarNascimento);
   el.nascEspecie.addEventListener('change', carregarCategoriasNascimento);
   el.nascCategoria.addEventListener('change', atualizarPreview);
   el.nascData.addEventListener('change', atualizarPreview);
+
+  el.btnNovoObito.addEventListener('click', () => abrirModalObito().catch(avisarErro));
+  el.obitoBtnCancelar.addEventListener('click', () => el.modalObito.close());
+  el.formObito.addEventListener('submit', salvarObito);
+  el.obitoEspecie.addEventListener('change', carregarCategoriasObito);
+
+  el.transBtnCancelar.addEventListener('click', () => el.modalTransicao.close());
+  el.formTransicao.addEventListener('submit', salvarTransicao);
 }
 
 async function iniciar() {

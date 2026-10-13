@@ -9,7 +9,10 @@
 <body>
 <header class="topbar">
   <h1>Controle da Fazenda Humaytá</h1>
-  <button id="btn-novo-nascimento" class="btn btn-primary">+ Registrar nascimento</button>
+  <div class="topbar-acoes">
+    <button id="btn-novo-obito" class="btn btn-secundario">+ Registrar óbito</button>
+    <button id="btn-novo-nascimento" class="btn btn-primary">+ Registrar nascimento</button>
+  </div>
 </header>
 
 <nav class="navbar">
@@ -74,8 +77,40 @@
   </div>
 
   <div id="aba-historico" style="display:none">
+    <section class="filtros">
+      <label>
+        Período
+        <select id="hist-periodo">
+          <option value="">Todo o período</option>
+          <option value="mes-atual">Este mês</option>
+          <option value="mes-passado">Mês passado</option>
+          <option value="90-dias">Últimos 90 dias</option>
+          <option value="ano-atual">Este ano</option>
+          <option value="personalizado">Personalizado</option>
+        </select>
+      </label>
+      <label>
+        De
+        <input type="date" id="hist-data-inicio" />
+      </label>
+      <label>
+        Até
+        <input type="date" id="hist-data-fim" />
+      </label>
+      <label>
+        Evento
+        <select id="hist-evento">
+          <option value="">Todos</option>
+          <option value="nascimento">Nascimento</option>
+          <option value="obito">Óbito</option>
+          <option value="transicao">Transição</option>
+        </select>
+      </label>
+      <button type="button" id="hist-limpar" class="btn btn-secundario">Limpar filtros</button>
+    </section>
+
     <section class="grafico-card">
-      <h3>Histórico de nascimentos e transições</h3>
+      <h3>Histórico de nascimentos, óbitos e transições</h3>
       <div class="tabela-wrapper">
         <table class="tabela-categoria">
           <thead>
@@ -97,7 +132,7 @@
 
 <dialog id="modal-nascimento">
   <form id="form-nascimento" method="dialog">
-    <h2>Registrar nascimento</h2>
+    <h2 id="nasc-titulo">Registrar nascimento</h2>
 
     <label>
       Espécie
@@ -128,9 +163,77 @@
     </label>
 
     <p id="nasc-preview" class="nota-rebanho"></p>
+    <p id="nasc-aviso-edicao" class="nota-rebanho" hidden>
+      Mudar categoria, quantidade ou data gera as transições de novo; ajustes manuais feitos nelas se perdem.
+    </p>
 
     <div class="modal-acoes">
       <button type="button" id="nasc-btn-cancelar" class="btn btn-secundario">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-obito">
+  <form id="form-obito" method="dialog">
+    <h2 id="obito-titulo">Registrar óbito</h2>
+
+    <label>
+      Espécie
+      <select id="obito-especie" required>
+        <option value="bovino">Bovino</option>
+        <option value="ovino">Ovino</option>
+      </select>
+    </label>
+
+    <label>
+      Categoria
+      <select id="obito-categoria" required></select>
+    </label>
+
+    <label>
+      Quantidade
+      <input type="number" id="obito-quantidade" min="1" step="1" value="1" required />
+    </label>
+
+    <label>
+      Data do óbito
+      <input type="date" id="obito-data" required />
+    </label>
+
+    <label>
+      Observações <span class="opcional">(opcional)</span>
+      <textarea id="obito-observacoes" rows="2"></textarea>
+    </label>
+
+    <div class="modal-acoes">
+      <button type="button" id="obito-btn-cancelar" class="btn btn-secundario">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-transicao">
+  <form id="form-transicao" method="dialog">
+    <h2>Editar transição</h2>
+    <p id="trans-descricao" class="nota-rebanho"></p>
+
+    <label>
+      Quantidade
+      <input type="number" id="trans-quantidade" min="1" step="1" required />
+    </label>
+
+    <label>
+      Mês da transição
+      <input type="month" id="trans-mes" required />
+    </label>
+
+    <p class="nota-rebanho">
+      Ajustes manuais valem só para esta transição. Se o nascimento de origem for editado, as transições dele são geradas de novo.
+    </p>
+
+    <div class="modal-acoes">
+      <button type="button" id="trans-btn-cancelar" class="btn btn-secundario">Cancelar</button>
       <button type="submit" class="btn btn-primary">Salvar</button>
     </div>
   </form>
